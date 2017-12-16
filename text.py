@@ -20,12 +20,20 @@ import re
 import operator
 from math import ceil
 import string
-import numpy as np
 from collections import Counter
+
+import numpy as np
+import pandas as pd
 
 # Monkeypatch Counter to support flattening
 
 def uncount(counter):
+    '''Flatten this counter.
+
+    >>> c = Counter("foofoobarbar") - Counter("foobar")
+    >>> c.uncount()
+    'foobar'
+    '''
     return ''.join(x*y for (x,y) in counter.items())
 
 Counter.uncount = uncount
@@ -35,11 +43,16 @@ lowers = string.ascii_lowercase
 uppers = string.ascii_uppercase
 letters = lowers+uppers
 
+# make some vectorized helpers you can do them to arrays
 is_letter = np.vectorize(lambda s: s in letters)
+is_lower = np.vectorize(lambda s: s == s.lower())
+is_upper = np.vectorize(lambda s: s == s.upper())
 
 def normalize(s):
     '''Lowercase s and remove all non-alphabetic characters.'''
     return ''.join([c for c in s.lower() if c in lowers])
+
+norm_all = np.vectorize(normalize)
 
 def as_np(arr):
     '''Coerce a string, number, or list to a numpy array'''
@@ -63,7 +76,25 @@ def ident(arr):
     # Assume it's a bunch of actual ordinals
     return 'o'
 
+def imod(arr):
+    r'''Mod an array of alphabet indices to stay within the alphabet.
+
+    >>> imod([0,1,25,26,27,109])
+    array([26,  1, 25, 26,  1,  5])
+
+    This is particularly useful because as_a looks for numbers outside [1,26]
+    to guess whether an array is alphabet indices or character ordinals:
+
+    >>> as_a([21, 29, 1, 12, 5, 7, 15, 14])
+    '\x15\x1d\x01\x0c\x05\x07\x0f\x0e'
+    >>> as_a(imod([21, 29, 1, 12, 5, 7, 15, 14]))
+    'ucalegon'
+
+    '''
+    return (np.array(arr)-1)%26 + 1
+
 def as_(arr, which):
+    '''Convert an object to alphabet, index, or ordinal mode.'''
     if which == 'a':
         return as_a(arr)
     if which == 'i':
@@ -120,16 +151,44 @@ def shift(arr, i):
     ords[lows] = (ords[lows]-ord('a')+i)%26+ord('a')
     return as_(ords, t)
 
+def shiftdf(*words, in_=None):
+    '''Given a set of words, return a dataframe of all caesar shifts of them.
+
+    If in_ is not None, values that aren't in in_ will be left blank. This is
+    useful when, for example, you want to know all the shifts of a set of words
+    that are valid words.
+    '''
+    if in_:
+        def mod(s, i):
+            x = shift(s, i)
+            if x not in in_:
+                return ''
+            return x
+    else:
+        mod = shift
+    return pd.DataFrame([[mod(word,i) for word in words] for i in range(26)])
+
 def shifts(s):
-    '''Yield all possible shifts of s'''
+    '''Yield all possible caesar shifts of s.'''
     for i in range(26):
         yield (i, shift(s, i))
 
 def show_shifts(s):
-    '''Show all possible shifts of s'''
+    '''Print all possible shifts of s.
+
+    Note that if you're using jupyter lab/notebook, shiftdf will be easier to
+    read because jupyter formats dataframes nicely. If you're not using jupyter,
+    you probably should be.
+    '''
     for (i, s2) in shifts(s):
         print('{:2} - {}'.format(i, s2))
 
 def unshift(c1, c2):
-    '''Compute how much you'd need to shift c1 to get c2'''
-    return (ord(c2)-ord(c1))%26
+    '''Compute how much you'd need to shift c1 to get c2.
+
+    If x == shift(y, 3), then unshift(x,y) will be 3.
+
+    If you pass in multicharacter strings, this'll just compute the unshift for
+    the first one.
+    '''
+    return (ord(c2[0])-ord(c1[0]))%26
