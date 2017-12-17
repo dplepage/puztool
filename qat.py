@@ -1,6 +1,7 @@
 import re
 from urllib.request import urlopen, quote
 from pyquery import PyQuery as pq
+import pandas as pd
 
 qaturl = "http://www.quinapalus.com/cgi-bin/qat?pat={}&ent=Search&dict=0"
 
@@ -10,7 +11,12 @@ def extract_from_table(table):
     for row in table('tr').items():
         yield [col.text().strip() for col in row('td').items()]
 
-class StructureChanged(Exception): pass
+class StructureChanged(Exception):
+    '''If this is raised, it means qat's page structure changed.
+
+    If that happens, this script probably stops working.
+    '''
+    pass
 
 class Response(object):
     def __init__(self, early, count, time, l):
@@ -39,18 +45,20 @@ def _qat(pattern):
     if len(table) > 1:
         raise StructureChanged("Multiple matches for .in form + table")
     if len(table) == 1:
-        entries = list(extract_from_table(table))
+        entries = extract_from_table(table)
     else:
         lines = x(".in").clone().children().remove().end().text().splitlines()
         entries = [l.split() for l in lines if l.strip()]
-        entries = sum(entries, []) #nah
+        entries = sum(entries, [])
     return Response(early, count, time, entries)
 
 
-def qat(pattern, verbose=True):
+def qat(pattern, verbose=True, df=True):
     result = _qat(pattern)
     if verbose:
         print(result.status)
+    if df:
+        return pd.DataFrame(result.l)
     return result.l
 
 
