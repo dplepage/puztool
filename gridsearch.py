@@ -79,4 +79,4 @@ def iter_strings(grid, min_len=3, max_len=None, dirs=directions.all):
                         break
                     dr, dc = dir.flat
                     yield Result(''.join(grid[list(points)]),
-                        ((row, col), (row+i*dr, col+i*dc)))
+                        ((row, col), (row+(i-1)*dr, col+(i-1)*dc)))
