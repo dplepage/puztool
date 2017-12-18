@@ -64,9 +64,20 @@ class TextModifier:
     >>> list(chain(["fooe", "barrk"]))
     [<foe>, <bark>]
 
+
     The provenance can be any object. This is useful if you want to define a
     "spout" that returns a list of strings plus some information about where
     they came from.
+
+    For a great example of this, see gridsearch.py - the iter_strings() function
+    extracts all strings in any direction from a grid of letters, and includes
+    the start and end coordinates of each string in the provenance. If you want
+    to find all strings in a grid that are words with one extra letter, you
+    might use the above chain to run `chain(iter_strings(the_grid))`. The
+    results will tell you what the actual words are that are in the grid with
+    one extra letter each, but the provenance for each will tell you what the
+    word was before a letter was deleted and where in the grid the original
+    string was.
     '''
 
     def __init__(self, fn):
