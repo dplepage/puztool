@@ -13,7 +13,7 @@ therefore is lossless, but index mode can't represent nonalphabetic characters
 or capitalization. Thus
 
 >>> as_a(as_i("Foo-12*bar"))
-"foo....bar"
+'foo....bar'
 
 '''
 import string

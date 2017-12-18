@@ -135,6 +135,8 @@ class Lists:
         self.data_dir = data_dir or here/'data/wordlists'
 
     def get(self, attr):
+        if attr.startswith('__'):
+            return object.__getattr__(self, attr)
         if attr not in self._cache:
             path = self.data_dir/'{}.txt'.format(attr)
             if path.exists():

@@ -61,7 +61,8 @@ class TextModifier:
 
     It can also now be chained with other modifiers:
 
-    >>> chain = deletions | Unique() | In(lists.sowpods)
+    >>> from puztool import lists
+    >>> chain = deletions | Unique() | In(lists.ospd)
     >>> list(chain(["fooe", "barrk"]))
     [<foe>, <bark>]
 
