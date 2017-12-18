@@ -116,12 +116,45 @@ def as_a(arr):
 def as_i(arr):
     a = as_a(arr)
     nums = np.array(list(map(ord, a.lower()))) - ord('a')+1
-    nums[(nums > 25) | (nums < 0)] = 0
+    nums[(nums > 26) | (nums < 1)] = 0
     return nums
 
 def as_o(arr):
     a = as_a(arr)
     return np.array(list(map(ord, a)))
+
+def lmasks(ords):
+    '''Find which items in an ordinal array are letters.
+
+    The return value is a tuple of (lettermask, uppermask, lowermask), such that
+    ords[uppermask] selects all uppercase characters in ords, ords[lowermask]
+    selects all lowercase characters in ords, and lettermask is
+    uppermask+lowermask.
+    '''
+    uppermask = ords == ords.clip(ord('A'), ord('Z'))
+    lowermask = ords == ords.clip(ord('a'), ord('z'))
+    return (uppermask | lowermask, uppermask, lowermask)
+
+def omod(ords, uppermask, lowermask):
+    r'''Wrap uppercase/lowercase values to stay in their ordinal ranges.
+
+    This is useful when you've just applied some mathematical operation to a
+    string containing both upper and lowercase letters, and you want to make
+    sure that values that have moved beyond a or z get wrapped back to stay
+    within their alphabet.
+
+    >>> s = "Hello, world!"
+    >>> ords = as_o(s)
+    >>> lmask, upmask, lowmask = lmasks(ords)
+    >>> ords[lmask] += 20
+    >>> as_a(ords) # Most chars have been shifted out of the alphabet
+    '\\y\x80\x80\x83, \x8b\x83\x86\x80x!'
+    >>> as_a(omod(ords, upmask, lowmask)) # chars stay in alphabet
+    'Byffi, qilfx!'
+    '''
+    ords[uppermask] = (ords[uppermask]-ord('A'))%26+ord('A')
+    ords[lowermask] = (ords[lowermask]-ord('a'))%26+ord('a')
+    return ords
 
 def shift(arr, i):
     '''Ceasar shift some data.
@@ -142,10 +175,9 @@ def shift(arr, i):
     '''
     t = ident(arr)
     ords = as_o(arr)
-    caps = ords == ords.clip(ord('A'), ord('Z'))
-    lows = ords == ords.clip(ord('a'), ord('z'))
-    ords[caps] = (ords[caps]-ord('A')+i)%26+ord('A')
-    ords[lows] = (ords[lows]-ord('a')+i)%26+ord('a')
+    lmask, uppermask, lowermask = lmasks(ords)
+    ords[lmask] += i
+    ords = omod(ords, uppermask, lowermask)
     return as_(ords, t)
 
 def shiftdf(*words, in_=None):
@@ -189,3 +221,50 @@ def unshift(c1, c2):
     the first one.
     '''
     return (ord(c2[0])-ord(c1[0]))%26
+
+
+def vigenere(arr, keyword):
+    '''Vigenere shift some data.
+
+    Nonalphabetic characters will be left as is.
+
+    The result will be coerced back to the detected type of the input:
+
+    >>> # text
+    >>> vigenere("Hello, world!", 'potato')
+    'Wselh, kdfed!'
+    >>> # alphabetic indices
+    >>> vigenere([ 8,  5, 25,  3, 7, 0], 'abc')
+    array([8, 6, 1, 3, 8, 0])
+    >>> # ordinals
+    >>> vigenere([72, 101, 108, 108, 111, 33], 'abc')
+    array([ 72, 102, 110, 108, 112,  33])
+    '''
+    t = ident(arr)
+    ords = as_o(arr)
+    lets, caps, lows = lmasks(ords)
+    n = len(ords[lets])
+    # repeat keyword as many times as needed to match lengths
+    cipher = as_i(keyword*(1+n//len(keyword)))[:n]-1
+    ords[lets] += cipher
+    ords = omod(ords, caps, lows)
+    return as_(ords, t)
+
+def unvigenere(arr, keyword):
+    '''Inverse of vigenere.
+
+    >>> vigenere("Hello, world!", 'potato')
+    'Wselh, kdfed!'
+    >>> unvigenere("Wselh, kdfed!", 'potato')
+    'Hello, world!'
+
+    '''
+    t = ident(arr)
+    ords = as_o(arr)
+    lets, caps, lows = lmasks(ords)
+    n = len(ords[lets])
+    # repeat keyword as many times as needed to match lengths
+    cipher = 27-as_i(keyword*(1+n//len(keyword)))[:n]
+    ords[lets] += cipher
+    ords = omod(ords, caps, lows)
+    return as_(ords, t)
