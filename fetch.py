@@ -11,7 +11,6 @@ import re
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
-import funcy as fn
 
 def filterer(filter):
     def newfn(s):
@@ -75,22 +74,3 @@ def fetch_table(url, which=0, skip_rows=0):
     raise NotImplementedError("TODO parse tables")
     # ha ha I'll probably never get to this. Just use pd.read_html and hope for
     # the best.
-    e = re.compile(regex)
-    resp = requests.get(url)
-    soup = BeautifulSoup(resp.content, 'lxml')
-    table_classes = {"class": ["sortable", "plainrowheaders", "wikitable"]}
-    wikitables = soup.findAll("table", table_classes)
-    table = wikitables[which]
-    saved_rowspans = {}
-    for i, row in enumerate(table):
-        if i < skip_rows:
-            continue
-        cells = row.findAll(["th", "td"])
-
-    data = []
-    for elt in soup.select(selector):
-        match = e.match(elt.text)
-        if not match:
-            continue
-        data.append(match.groupdict())
-    return pd.DataFrame(data, columns=list(e.groupindex))

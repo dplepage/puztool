@@ -16,9 +16,6 @@ or capitalization. Thus
 "foo....bar"
 
 '''
-import re
-import operator
-from math import ceil
 import string
 from collections import Counter
 

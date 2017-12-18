@@ -1,3 +1,4 @@
+import itertools
 from .text import shifts
 
 class Result:
