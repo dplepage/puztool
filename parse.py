@@ -15,6 +15,7 @@ import io
 import re
 import numpy as np
 import pandas as pd
+from pandas.io.clipboard import clipboard_get
 
 def guess_splitter(lines):
     if all('\t' in line for line in lines):
@@ -26,7 +27,9 @@ def guess_splitter(lines):
     return None
 
 
-def parse_grid(data, sep = None, nostrip=False, comment='#'):
+def parse_grid(data=None, sep = None, nostrip=False, comment='#'):
+    if data is None:
+        data = clipboard_get()
     if not nostrip:
         data = dedent(data.rstrip()).strip()
     lines = data.splitlines()
@@ -49,7 +52,9 @@ def parse_grid(data, sep = None, nostrip=False, comment='#'):
         data = data.reshape(len(lines), -1)
     return data
 
-def parse_table(table, sep='\s+', header=None, conv=None, **kw):
+def parse_table(table=None, sep='\s+', header=None, conv=None, **kw):
+    if table is None:
+        table = clipboard_get()
     if isinstance(table, str):
         table = io.StringIO(table)
     if conv is not None:
