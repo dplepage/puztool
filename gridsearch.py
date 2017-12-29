@@ -43,7 +43,7 @@ def parse_dirs(s):
         return chosen
     return s
 
-def iter_strings(grid, min_len=3, max_len=None, dirs=directions.all):
+def iter_strings(grid, len=(3,None), dirs=directions.all):
     '''Emit all sequences of letters in grid.
 
     dirs can be a list of tuples, or a comma-separated list of letters
@@ -54,7 +54,16 @@ def iter_strings(grid, min_len=3, max_len=None, dirs=directions.all):
 
     dirs defaults ot 'a', meaning all orthogonal and diagonal directions.
 
-    min_len and max_len limit the lengths of the returned strings.
+    If len is a number, only sequences of that length will be returned. If it is
+    a tuple of (min, max), only sequences with lengths in [min, max] will be
+    returned. If len is None, or if len is a tuple and min or max is None, that
+    bound will be ignored, e.g. len=(3,None) returns all sequences of 3 or more
+    cells.
+
+    Note that while this function does return strings, "len" here refers to the
+    number of *cells* per word. If the input grid has cells containing multiple
+    letters, len=3 will return all strings made by combining three adjacent
+    cells, regardless of how long the actual strings are.
 
     The results are Result objects where .val is the string in question
     and .provenance is a tuple of (start, end) indicating where in the grid
@@ -69,7 +78,7 @@ def iter_strings(grid, min_len=3, max_len=None, dirs=directions.all):
                 # shaping it to (2,1) means we can do dir*arange(i) to get a 2xi
                 # array of indices
                 dir = np.array(dir).reshape(2,1)
-                for i in range(min_len, max_len if max_len else max(w,h)):
+                for i in range(min_len, max_len+1 if max_len else max(w,h)):
                     points = start + dir*np.arange(i)
                     # bounds check - stop if we've gone off the end
                     if (points[0].clip(0,h-1) != points[0]).any():
