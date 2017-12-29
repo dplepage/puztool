@@ -82,27 +82,53 @@ class TextModifier:
     string was.
     '''
 
+    def process(self, seq):
+        raise NotImplementedError()
+
+    def __call__(self, val):
+        if isinstance(val, str):
+            val = Result(val)
+        if isinstance(val, Result):
+            val = [val]
+        def wrap(item):
+            if isinstance(item, str): return Result(item)
+            return item
+        return self.process(wrap(item) for item in val)
+
+    def __or__(self, other):
+        return FnModifier(lambda val: other(self(val)))
+
+    def __ror__(self, other):
+        return self(other)
+
+    def l(self):
+        '''Return a modifier that auto-iterates.
+
+        In general, list(self(val)) and self.l()(val) should be equivalent. This
+        lets you write e.g. get_words() | deletions() | In(sowpods).l() instead
+        of list(get_words() | deletions() | In(sowpods)), which just makes it
+        look a little nicer.
+        '''
+        return CompleteModifier(self)
+
+
+class FnModifier(TextModifier):
     def __init__(self, fn):
         self.fn = fn
 
-    def __call__(self, val):
-        if isinstance(val, (str, Result)):
-            yield from self._onval(val)
-        else:
-            for item in val:
-                yield from self._onval(item)
+    def process(self, seq):
+        for item in seq:
+            yield from self.fn(item)
 
-    def _onval(self, val):
-        if isinstance(val, str):
-            val = Result(val)
-        yield from self.fn(val)
+
+class CompleteModifier(FnModifier):
+    def __call__(self, val):
+        return list(super().__call__(val))
 
     def __or__(self, other):
-        return TextModifier(lambda val: other(self(val)))
+        return CompleteModifier(lambda val: other(self(val)))
 
-
-
-@TextModifier
+@FnModifier
 def deletions(result):
     '''Return all strings generated from the input by removing one letter.'''
     s = result.val
@@ -110,14 +136,14 @@ def deletions(result):
         yield result.extend(''.join(s[:i])+''.join(s[i+1:]))
 
 
-@TextModifier
+@FnModifier
 def perms(result):
     '''Return all strings generated from the input by transposition.'''
     for p in itertools.permutations(result.val):
         yield result.extend(''.join(p))
 
 
-@TextModifier
+@FnModifier
 def caesars(result):
     '''Return all strings generated from the input by caesar shifting.'''
     for (i, s) in shifts(result.val):
@@ -130,7 +156,16 @@ class In(TextModifier):
     '''
     def __init__(self, set):
         self.set = set
-        super().__init__(lambda s:[s] if s.val in set else [])
+
+    def process(self, seq):
+        return (item for item in seq if item.val in self.set)
+
+class Filter(TextModifier):
+    def __init__(self, filter):
+        self.predicate = fn.funcmakers.make_pred(filter)
+
+    def process(self, seq):
+        return (item for item in seq if self.predicate(item.val))
 
 
 class Unique(TextModifier):
@@ -142,11 +177,11 @@ class Unique(TextModifier):
     '''
     def __init__(self):
         self.set = set()
-        super().__init__(self._uniquify)
 
-    def _uniquify(self, result):
-        if result.val in self.set:
-            return
-        self.set.add(result.val)
-        yield result
+    def process(self, seq):
+        for result in seq:
+            if result.val in self.set:
+                continue
+            self.set.add(result.val)
+            yield result
 
