@@ -33,13 +33,13 @@ def parse_dirs(s):
     dirs defaults to 'a', meaning all orthogonal and diagonal directions.
     '''
     if isinstance(s, str):
-        chosen = set()
+        chosen = []
         for key in s.split(','):
             choice = directions[key.strip()]
             if isinstance(choice, list):
-                chosen = chosen.union(choice)
+                chosen.extend(choice)
             else:
-                chosen.add(choice)
+                chosen.append(choice)
         return chosen
     return s
 
