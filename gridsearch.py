@@ -71,6 +71,15 @@ def iter_strings(grid, len=(3,None), dirs=directions.all):
     '''
     dirs = parse_dirs(dirs)
     w, h = grid.shape[:2]
+    if not isinstance(len, (list, tuple)):
+        min_len = max_len = len
+    else:
+        min_len, max_len = len
+    if min_len is None:
+        min_len = 3
+    if max_len is None:
+        max_len = max(w,h)
+
     for row in range(h):
         for col in range(w):
             start = np.array([[row], [col]])
@@ -78,7 +87,7 @@ def iter_strings(grid, len=(3,None), dirs=directions.all):
                 # shaping it to (2,1) means we can do dir*arange(i) to get a 2xi
                 # array of indices
                 dir = np.array(dir).reshape(2,1)
-                for i in range(min_len, max_len+1 if max_len else max(w,h)):
+                for i in range(min_len, max_len+1):
                     points = start + dir*np.arange(i)
                     # bounds check - stop if we've gone off the end
                     if (points[0].clip(0,h-1) != points[0]).any():
