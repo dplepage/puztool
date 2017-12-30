@@ -2,6 +2,7 @@ from .parse import parse_grid, parse_lists, parse_table, pg, pt, pl
 from .words import lists, npl
 from .text import shift, unshift
 from .misc import smoosh, show
+from .dropquote import DropQuote
 from .qat import qat
 from .modifier import FnModifier, TextModifier, In, deletions, perms
 from . import gridsearch
@@ -20,6 +21,7 @@ __all__ = [
     'unshift',
     'smoosh',
     'show',
+    'DropQuote',
     'qat',
     'FnModifier',
     'TextModifier',
