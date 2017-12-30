@@ -27,7 +27,7 @@ def guess_splitter(lines):
     return None
 
 
-def parse_grid(data=None, sep = None, nostrip=False, comment='#'):
+def parse_grid(data=None, sep=None, nostrip=False, comment='#', jagged=False):
     if data is None:
         data = clipboard_get()
     if not nostrip:
@@ -42,15 +42,27 @@ def parse_grid(data=None, sep = None, nostrip=False, comment='#'):
         lines = [re.split(sep, line) for line in lines]
     else:
         lines = [list(line) for line in lines]
-    data = sum(lines, [])
-    if all(re.match('^\d+$', d) for d in data):
-        data = list(map(int, data))
-    elif all(re.match('^\d+\.?\d*$', d) for d in data):
-        data = list(map(float, data))
-    data = np.array(data)
-    if all(len(line) == len(lines[0]) for line in lines):
+    all_items = sum(lines, [])
+    mode = str
+    if all(re.match('^\d+$', d) for d in all_items):
+        mode = int
+    elif all(re.match('^\d+\.?\d*$', d) for d in all_items):
+        mode = float
+    is_rect = all(len(line) == len(lines[0]) for line in lines)
+    if is_rect:
+        jagged = False
+    if jagged:
+        return np.array([
+            np.array([mode(val) for val in line]) for line in lines])
+    data = np.array([mode(val) for val in all_items])
+    if is_rect:
         data = data.reshape(len(lines), -1)
     return data
+
+
+def parse_lists(data=None, sep=None, nostrip=False, comment='#'):
+    return parse_grid(data, sep, nostrip, comment, jagged=True)
+
 
 def parse_table(table=None, sep='\s+', header=None, conv=None, **kw):
     if table is None:
@@ -62,8 +74,10 @@ def parse_table(table=None, sep='\s+', header=None, conv=None, **kw):
     kw.setdefault("comment", '#')
     return pd.read_table(table, sep=sep, header=header, **kw)
 
-pt = parse_table
 
+
+pt = parse_table
+pl = parse_lists
 pg = parse_grid
 
 
