@@ -5,6 +5,7 @@ from .misc import smoosh, show
 from .qat import qat
 from .modifier import FnModifier, TextModifier, In, deletions, perms
 from . import gridsearch
+from . import logic_grid
 
 __all__ = [
     'parse_grid',
@@ -26,4 +27,5 @@ __all__ = [
     'deletions',
     'perms',
     'gridsearch',
+    'logic_grid',
 ]
