@@ -18,7 +18,7 @@ def filterer(filter):
         if m: return m.groupdict()
     return newfn
 
-def parse_list(elements, filter=re.compile('(?P<value>.*)'), cols=None):
+def parse_list(elements, filter=re.compile('(?P<value>.*)'), cols=None, html=False):
     '''Extract text from a list of bs4 elements to a pandas dataframe.
 
     `filter` should be a function that takes a string and returns a dictionary
@@ -40,7 +40,11 @@ def parse_list(elements, filter=re.compile('(?P<value>.*)'), cols=None):
         filter = filterer(filter)
     data = []
     for elt in elements:
-        match = filter(elt.text)
+        if html:
+            text = str(elt)
+        else:
+            text = elt.text
+        match = filter(text)
         if match is None:
             continue
         data.append(match)
@@ -52,7 +56,7 @@ def select(url, selector):
     soup = BeautifulSoup(resp.content, 'lxml')
     return soup.select(selector)
 
-def fetch_list(url, selector, filter=re.compile('(?P<value>.*)'), cols=None):
+def fetch_list(url, selector, filter=re.compile('(?P<value>.*)'), cols=None, html=False):
     '''
     Attempt to download a list of data from a website.
 
@@ -67,7 +71,7 @@ def fetch_list(url, selector, filter=re.compile('(?P<value>.*)'), cols=None):
     dataframe; elements that don't match will be ignored.
 
     '''
-    return parse_list(select(url, selector), filter, cols)
+    return parse_list(select(url, selector), filter, cols, html)
 
 def fetch_table(url, which=0, skip_rows=0):
     '''Assumes selector yields tr elements.'''
