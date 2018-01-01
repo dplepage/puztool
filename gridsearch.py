@@ -70,7 +70,7 @@ def iter_strings(grid, len=(3,None), dirs=directions.all):
     the word was found.
     '''
     dirs = parse_dirs(dirs)
-    w, h = grid.shape[:2]
+    h, w = grid.shape[:2]
     if not isinstance(len, (list, tuple)):
         min_len = max_len = len
     else:
