@@ -1,3 +1,6 @@
+import re
+import funcy as fn
+
 to_morse = {
     ' ': '/',
     'a': '.-',
@@ -65,6 +68,16 @@ def encode(s):
 
 def decode(s):
     return ''.join(from_morse[x] for x in s.split() if x in from_morse)
+
+@fn.collecting
+def extract_it(s, dotdashspace='it '):
+    '''Decode morse encoded as i's and t's for dots and dashes'''
+    dot, dash, space = dotdashspace
+    letters = s.lower().split(space)
+    for letter in letters:
+        letter = re.sub('[^{}{}]'.format(dot,dash), '', letter)
+        letter = letter.replace(dot, '.').replace(dash, '-')
+        yield letter
 
 if __name__ == '__main__':
     import sys
