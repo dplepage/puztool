@@ -2,6 +2,8 @@ from functools import lru_cache
 from itertools import product
 from pathlib import Path
 
+from .modifier import In
+
 here = Path(__file__).parent
 
 def make_tree(wordlist):
@@ -75,7 +77,9 @@ class WordTree(object):
 
 # Lazy loading wordlists and trees
 
-class WordList:
+# Coincidentally, the `set` property is exactly what modifiers.In uses, so we
+# can just inherit from In to turn WordLists into filters!
+class WordList(In):
     def __init__(self, path):
         self.path = path
 
