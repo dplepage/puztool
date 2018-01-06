@@ -81,8 +81,17 @@ class TextModifier:
     word was before a letter was deleted and where in the grid the original
     string was.
     '''
+    autoiterate = False
+
+    def __init__(self, autoiterate=False):
+        self.autoiterate = autoiterate
 
     def process(self, seq):
+        if self.autoiterate:
+            return list(self._process(seq))
+        return self._process(seq)
+
+    def _process(self, seq):
         raise NotImplementedError()
 
     def __call__(self, val):
@@ -96,7 +105,8 @@ class TextModifier:
         return self.process(wrap(item) for item in val)
 
     def __or__(self, other):
-        return FnModifier(lambda val: other(self(val)))
+        auto = self.autoiterate or other.autoiterate
+        return FnModifier(lambda val: other(self(val)), autoiterate=auto)
 
     def __ror__(self, other):
         return self(other)
@@ -109,24 +119,25 @@ class TextModifier:
         of list(get_words() | deletions() | In(sowpods)), which just makes it
         look a little nicer.
         '''
-        return CompleteModifier(self)
+        return FnModifier(self, autoiterate=True)
+
+
+class Print(TextModifier):
+    def _process(self, seq):
+        for item in seq:
+            print(item)
+            yield item
 
 
 class FnModifier(TextModifier):
-    def __init__(self, fn):
+    def __init__(self, fn, autoiterate=False):
+        super().__init__(autoiterate)
         self.fn = fn
 
-    def process(self, seq):
+    def _process(self, seq):
         for item in seq:
             yield from self.fn(item)
 
-
-class CompleteModifier(FnModifier):
-    def __call__(self, val):
-        return list(super().__call__(val))
-
-    def __or__(self, other):
-        return CompleteModifier(lambda val: other(self(val)))
 
 @FnModifier
 def deletions(result):
@@ -154,17 +165,18 @@ class In(TextModifier):
 
     Useful with word lists.
     '''
-    def __init__(self, set):
+    def __init__(self, set, autoiterate=False):
+        super().__init__(autoiterate)
         self.set = set
 
-    def process(self, seq):
+    def _process(self, seq):
         return (item for item in seq if item.val in self.set)
 
 class Filter(TextModifier):
     def __init__(self, filter):
         self.predicate = fn.funcmakers.make_pred(filter)
 
-    def process(self, seq):
+    def _process(self, seq):
         return (item for item in seq if self.predicate(item.val))
 
 
@@ -178,7 +190,7 @@ class Unique(TextModifier):
     def __init__(self):
         self.set = set()
 
-    def process(self, seq):
+    def _process(self, seq):
         for result in seq:
             if result.val in self.set:
                 continue
