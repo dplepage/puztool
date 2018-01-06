@@ -268,3 +268,16 @@ def unvigenere(arr, keyword):
     ords[lets] += cipher
     ords = omod(ords, caps, lows)
     return as_(ords, t)
+
+class Swapper:
+    def __init__(self, text):
+        self.text = text.lower()
+        self.first = lowers
+        self.second = lowers
+
+    @property
+    def end(self):
+        return self.text.translate(str.maketrans(self.first, self.second))
+
+    def swap(self, first, second):
+        self.second = self.second.translate(str.maketrans(first+second, second+first))
