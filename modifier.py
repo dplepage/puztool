@@ -8,9 +8,9 @@ class Result:
     the words but also tell you where in the grid it found each word.
 
     '''
-    def __init__(self, val, provenance=()):
+    def __init__(self, val, provenance=None):
         self.val = val
-        self.provenance = provenance
+        self.provenance = (provenance,) if provenance is not None else ()
 
     def extend(self, new_val, provenance=None):
         if provenance is None:
@@ -100,7 +100,8 @@ class TextModifier:
         if isinstance(val, Result):
             val = [val]
         def wrap(item):
-            if isinstance(item, str): return Result(item)
+            if isinstance(item, str):
+                return Result(item)
             return item
         return self.process(wrap(item) for item in val)
 
