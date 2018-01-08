@@ -269,15 +269,140 @@ def unvigenere(arr, keyword):
     ords = omod(ords, caps, lows)
     return as_(ords, t)
 
+
+class UnswappableError(ValueError): pass
+
+def swap(a, b, c, alphabet=lowers):
+    '''Exchange all occurences of characters in b with characters in c.
+
+    >>> swap("bagel", "ba", "an")
+    'angel'
+    >>> swap("proton", "rot", "iem")
+    'piemen'
+    >>> swap("abcdefg", "abc", "efg")
+    'efgdabc'
+
+    Nonsensical swaps will raise UnswappableErrors:
+
+    >>> swap("abbdefg", "abc", "ggg")
+    Traceback (most recent call last):
+        ...
+    puztool.text.UnswappableError: Conflict - b or a->g?
+    '''
+    shift = getswap(b,c, alphabet=alphabet)
+    return a.translate(str.maketrans(alphabet, shift))
+
+def _swap1(a, b, c):
+    return a.translate(str.maketrans(b, c))
+
+def getswap(first, second, alphabet=lowers):
+    '''Compute a substitution cipher that maps a to b.
+
+    The return value will be a string subst satisfying
+    a.translate(str.maketrans(alphabet, subst)) == b
+
+    This will raise an UnswappableError if no such string exists.
+
+    >>> getswap("werewolf", "monomial")
+    'fbcdolghejkawripqnstuvmxyz'
+    >>> swap("werewolf", lowers, "fbcdolghejkawripqnstuvmxyz")
+    'monomial'
+
+    >>> getswap("werewolf", "dividend")
+    Traceback (most recent call last):
+      ...
+    puztool.text.UnswappableError: Conflict - f or w->d?
+
+    >>> getswap("werewolf", "apoplexy")
+    Traceback (most recent call last):
+      ...
+    puztool.text.UnswappableError: Conflict - w->l or a?
+
+    >>> getswap("werewolf", "foo")
+    Traceback (most recent call last):
+      ...
+    puztool.text.UnswappableError: Length mismatch (8 vs 3)
+    '''
+    if len(first) != len(second):
+        msg = "Length mismatch ({} vs {})"
+        raise UnswappableError(msg.format(len(first), len(second)))
+    # sanity check
+    fwd = {}
+    back = {}
+    for a,b in zip(first, second):
+        if fwd.get(a,b) != b:
+            raise UnswappableError(
+                "Conflict - {}->{} or {}?".format(a,b,fwd[a]))
+        if back.get(b,a) != a:
+            raise UnswappableError(
+                "Conflict - {} or {}->{}?".format(a,back[b],b))
+        fwd[a] = b
+        back[b] = a
+    # Actually compute it
+    record = alphabet
+    for a,b in zip(first, second):
+        a = _swap1(a, alphabet, record)
+        record = _swap1(record, a+b, b+a)
+    return record
+
+def swappable(first, second):
+    '''Returns True iff a substitution cipher could map first to second.
+
+    >>> swappable("werewolf", 'monomial')
+    True
+    >>> swappable("werewolf", 'dividend')
+    False
+
+    Use `getswap` if you want an error message that tells you why they can't be
+    swapped.
+    '''
+    try:
+        getswap(first, second)
+    except UnswappableError:
+        return False
+    return True
+
 class Swapper:
-    def __init__(self, text):
-        self.text = text.lower()
-        self.first = lowers
-        self.second = lowers
+    '''Helper for when you're manually trying to solve a substitution cipher.
+
+    >>> s = Swapper('c xch, c ltch, c echct: lchcxc')
+
+    s.swap exchanges two strings; if you only pass in one, it must be two
+    letters and will swap those two letters. s.end returns the current result:
+
+    >>> s.swap('ca')
+    >>> s.end
+    'a xah, a ltah, a eahat: lahaxa'
+
+    s.sp, short for "swap and print", is just like swap except it prints s.end
+    afterwards. This makes it easy to use repeatedly from a shell:
+
+    >>> s.sp('ltah', 'plan')
+    a xan, a plan, a eanal: panaxa
+    >>> s.sp('xe','mc')
+    a man, a plan, a canal: panama
+
+    s.subst shows the substitution cipher that maps start to end:
+
+    >>> s.subst
+    'ebadcfgnijkpxhotqrsluvwmyz'
+
+    '''
+    def __init__(self, start, alphabet=lowers):
+        self.start = start
+        self.alphabet = alphabet
+        self.subst = alphabet
 
     @property
     def end(self):
-        return self.text.translate(str.maketrans(self.first, self.second))
+        return swap(self.start, self.alphabet, self.subst)
 
-    def swap(self, first, second):
-        self.second = self.second.translate(str.maketrans(first+second, second+first))
+    def swap(self, first, second=None):
+        if second is None:
+            first, second = first
+        sw = getswap(first, second, alphabet=self.alphabet)
+        self.subst = swap(self.subst, self.alphabet, sw)
+
+    def sp(self, first, second=None):
+        self.swap(first, second)
+        print(self.end)
