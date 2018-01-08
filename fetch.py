@@ -73,8 +73,13 @@ def fetch_list(url, selector, filter=re.compile('(?P<value>.*)'), cols=None, htm
     '''
     return parse_list(select(url, selector), filter, cols, html)
 
-def fetch_table(url, which=0, skip_rows=0):
-    '''Assumes selector yields tr elements.'''
-    raise NotImplementedError("TODO parse tables")
-    # ha ha I'll probably never get to this. Just use pd.read_html and hope for
-    # the best.
+
+def fetch_table(url, wiki=True, **kw):
+    '''Just a thin wrapper around pd.read_html.'''
+    text = requests.get(url).content
+    if wiki: # wikipedia mode - remove footnotes and other details
+        bs = BeautifulSoup(text, 'lxml')
+        [x.decompose() for x in bs.findAll("small")]
+        [x.decompose() for x in bs.select(".reference")]
+        text = str(bs)
+    return pd.read_html(text, **kw)
