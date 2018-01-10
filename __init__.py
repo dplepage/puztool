@@ -1,5 +1,5 @@
 from .parse import parse_grid, parse_lists, parse_table, pg, pt, pl
-from .words import lists, npl
+from .words import lists
 from .text import shift, unshift, normalize, lowers
 from .misc import smoosh, show
 from .dropquote import DropQuote
@@ -16,7 +16,6 @@ __all__ = [
     'pt',
     'pl',
     'lists',
-    'npl',
     'shift',
     'unshift',
     'normalize',

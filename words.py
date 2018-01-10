@@ -150,7 +150,8 @@ class Lists:
     def __getattr__(self, attr):
         return self.get(attr)
 
+    def __contains__(self, name):
+        if attr in self._cache: return True
+        return (self.data_dir/f'{name}.txt').exists()
 
 lists = Lists()
-
-npl = lists.npl
