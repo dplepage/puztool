@@ -3,7 +3,7 @@ from .words import lists, npl
 from .text import shift, unshift, normalize, lowers
 from .misc import smoosh, show
 from .dropquote import DropQuote
-from .qat import qat
+from .serivce import qat, nutr
 from .modifier import FnModifier, TextModifier, In, deletions, perms, Unique
 from . import gridsearch
 from . import logic_grid
@@ -24,7 +24,7 @@ __all__ = [
     'smoosh',
     'show',
     'DropQuote',
-    'qat',
+    'qat', 'nutr',
     'FnModifier',
     'TextModifier',
     'In',
