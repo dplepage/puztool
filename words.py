@@ -1,10 +1,15 @@
 from functools import lru_cache
 from itertools import product
 from pathlib import Path
+import os
 
 from .modifier import In
 
 here = Path(__file__).parent
+
+data_path = os.environ.get("PUZTOOL_DATA_DIR", "data/wordlists")
+
+default_data_dir = here/data_path
 
 def make_tree(wordlist):
     tree = dict()
@@ -136,7 +141,7 @@ class WordList(In):
 class Lists:
     def __init__(self, data_dir=None):
         self._cache = {}
-        self.data_dir = data_dir or here/'data/wordlists'
+        self.data_dir = data_dir or default_data_dir
 
     def get(self, attr):
         if attr.startswith('__'):
