@@ -16,16 +16,19 @@ def run_service(service, query):
     try:
         result = service(query, verbose=False, fmt='raw')
     except (QueryError, StructureChanged) as p:
-        url = service.mkurl(query)
+        url = service.ext_url(query)
         return dict(text=f"<{url}|Query failed>:{query}")
-    resp = "\n".join("".join(l) for l in result.l[:20])
+    url = service.ext_url(query)
+    resp = "\n".join(l if isinstance(l, str) else '\t'.join(l) for l in result.l[:20])
     count = len(result.l)
     if count < 20:
         cstr = f'{count}'
+    elif result.total is None:
+        cstr = 'Here are 20'
     else:
-        cstr = 'First 20'
+        cstr = f'Here are 20 of {result.total}'
     return {
-        "text": f"<{result.url}|{cstr} results for `{query}`>.",
+        "text": f"<{url}|{cstr} results for `{query}`>.",
         "response_type": "in_channel",
         "attachments": [
             {
@@ -63,9 +66,31 @@ def defer(fn, target, *args):
     p.start()
     return p
 
+help_msg = dict(
+    text = '''
+Usage: `/puzz <cmd> <query>`
+Search commands:
+> *qat* - Get matches with <https://www.quinapalus.com/cgi-bin/qat|Qat>
+> *nutrimatic* - Get matches with <https://nutrimatic.org/|Nutrimatic>
+> *anagram* - Get anagrams from <https://wordsmith.org/anagram/|Wordsmith>
+> *unphone* - Get words from a phone # from <http://www.dialabc.com/words/search/index.html|DialABC>
+
+Conversion commands:
+> *braille* - Convert text to <https://en.wikipedia.org/wiki/Braille|braille>
+> *phone* - Convert text to <https://en.wikipedia.org/wiki/Phoneword|a phone number>
+> *morse*/*unmorse* - Convert text to or from <https://en.wikipedia.org/wiki/Morse_code|morse code>
+> *nato*/*unnato* - Convert text to or from <https://en.wikipedia.org/wiki/NATO_phonetic_alphabet|nato phonetics>
+
+Note that unmorse and unnato will simply ignore any word that isn't a recognized letter.
+    '''.strip()
+)
+
+
 @app.route("/puzz", methods=["POST"])
 def handle_cmd():
-    query = request.form['text']
+    query = request.form.get('text')
+    if not query:
+        return jsonify(help_msg)
     target = request.form['response_url']
     cmd, rest = query.split(maxsplit=1)
     return fns[cmd](rest, target)
@@ -138,4 +163,4 @@ add_basic("phone", to_phone)
 add_basic('braille', braille)
 
 if __name__ == '__main__':
-    app.run()
+    app.run(debug=True)
