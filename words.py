@@ -151,7 +151,7 @@ class Lists:
         return self.get(attr)
 
     def __contains__(self, name):
-        if attr in self._cache: return True
+        if name in self._cache: return True
         return (self.data_dir/f'{name}.txt').exists()
 
 lists = Lists()

@@ -424,7 +424,6 @@ class Solver(Grid):
         def add_it(fn):
             for choices in product(*opts):
                 if not fn(*[c.val for c in choices]):
-                    y = ['({},{})'.format(v, c) for (v, c) in zip(vars, choices)]
                     vs = [self.vars[v, c] for (v, c) in zip(vars, choices)]
                     self.add(nj.Sum(vs) < len(vs))
             return fn
