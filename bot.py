@@ -39,7 +39,6 @@ def run_iterable(iterable, name, query):
         items = list(fn.take(20, iterable))
     except Exception as e:
         return dict(text=f"Query failed:{e}")
-    print(items)
     resp = "\n".join("".join(l.val) for l in items[:20])
     count = len(items)
     if count < 20:
