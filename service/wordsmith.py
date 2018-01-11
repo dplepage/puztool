@@ -1,7 +1,7 @@
 import re
 from bs4 import BeautifulSoup
 
-from .service import Service, QueryError, StructureChanged
+from .service import Service, StructureChanged
 
 
 class WordsmithService(Service):
@@ -11,6 +11,8 @@ class WordsmithService(Service):
     def parse_page(self, query, page):
         page = BeautifulSoup(page, 'lxml')
         p = page.select_one(".p402_premium > p")
+        if p is None:
+            return [], False, 0
         status = p.select_one("b").text
         stats = self.statre.match(status)
         if not stats:
