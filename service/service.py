@@ -42,6 +42,9 @@ class Service:
     def mkurl(self, query):
         return self.urlbase.format(quote(query))
 
+    def ext_url(self, query):
+        return self.mkurl(query)
+
     def __call__(self, query, verbose=True, fmt='df'):
         url = self.mkurl(query)
         start = time.process_time()

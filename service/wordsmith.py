@@ -8,6 +8,9 @@ class WordsmithService(Service):
     urlbase = "https://new.wordsmith.org/anagram/anagram.cgi?anagram={{{}}}&t=20"
     statre = re.compile('(?P<total>\d+) found. Displaying')
 
+    def ext_url(self, query):
+        return self.mkurl(query)[:-2]+"500"
+
     def parse_page(self, query, page):
         page = BeautifulSoup(page, 'lxml')
         p = page.select_one(".p402_premium > p")
