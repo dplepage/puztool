@@ -18,7 +18,7 @@ class WordsmithService(Service):
         if not stats:
             raise StructureChanged('No header block')
         total = int(stats.group('total'))
-        entries = ''.join(p.findAll(text=True, recursive=False)).splitlines()
+        entries = ''.join(p.findAll(text=True, recursive=False)).strip().splitlines()
         return entries, len(entries) < total, total
 
     def extract_from_table(self, table):
