@@ -52,6 +52,7 @@ class Service:
         start = time.process_time()
         page = pq(urlopen(url).read())
         items, partial = self.parse_page(query, page)
+        items = list(items)
         end = time.process_time()
         result = Result(query, url, len(items), end-start, partial, items)
         if verbose:
