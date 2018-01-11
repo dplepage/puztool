@@ -1,11 +1,6 @@
 import time
 from urllib.request import urlopen, quote
-
-from pyquery import PyQuery as pq
-try:
-    import pandas as pd
-except ImportError:
-    pd = None
+import pandas as pd
 
 class StructureChanged(Exception):
     '''Exception for "we parsed a page and it wasn't what we expected".
@@ -21,16 +16,16 @@ class QueryError(ValueError):
 
 
 class Result(object):
-    def __init__(self, query, url, count, time, partial, items):
+    def __init__(self, query, url, total, time, partial, items):
         super(Result, self).__init__()
         self.query = query
         self.url = url
-        self.count = count
+        self.total = total
         self.partial = partial
         self.time = time
         self.l = items
         pstr = ' (partial)' if partial else ''
-        self.status = f'{self.count} items in {self.time}s{pstr}'
+        self.status = f'{len(self.l)} items in {self.time}s{pstr}'
 
     def __repr__(self):
         return 'Result({!r}, {!r}, {!r})'.format(self.early, self.count, self.time)
@@ -50,11 +45,11 @@ class Service:
     def __call__(self, query, verbose=True, fmt='df'):
         url = self.mkurl(query)
         start = time.process_time()
-        page = pq(urlopen(url).read())
-        items, partial = self.parse_page(query, page)
+        page = urlopen(url).read()
+        items, partial, total = self.parse_page(query, page)
         items = list(items)
         end = time.process_time()
-        result = Result(query, url, len(items), end-start, partial, items)
+        result = Result(query, url, total, end-start, partial, items)
         if verbose:
             print(result.status)
         if fmt == 'l':
