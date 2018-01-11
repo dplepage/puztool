@@ -1,4 +1,5 @@
 import itertools
+import funcy as fn
 from .text import shifts
 
 class Result:
