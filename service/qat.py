@@ -1,4 +1,5 @@
 import re
+from bs4 import BeautifulSoup
 
 from .service import Service, QueryError, StructureChanged
 
@@ -8,28 +9,29 @@ class QatService(Service):
     statre = re.compile('(?P<early>Search terminated early)? *Total solutions found: (?P<count>\d+) in (?P<time>.*?)s')
 
     def parse_page(self, query, page):
-        status = page(".in i").text()
+        page = BeautifulSoup(page, 'lxml')
+        status = page.select(".in i")[0].text
         stats = self.statre.match(status)
         if not stats:
             raise QueryError(query)
         partial = bool(stats.group('early'))
-        table = page(".in form + table")
-        if len(table) > 1:
+        tables = page.select(".in form + table")
+        if len(tables) > 1:
             raise StructureChanged("Multiple matches for .in form + table")
-        if len(table) == 1:
-            entries = self.extract_from_table(table)
+        if len(tables) == 1:
+            entries = self.extract_from_table(tables[0])
         else:
-            lines = page(".in").clone().children().remove().end().text().splitlines()
-            entries = [l.split() for l in lines if l.strip()]
-            entries = sum(entries, [])
-        return entries, partial
+            texts = page.select(".in")[0].findAll(text=True, recursive=False)
+            entries = ''.join(texts).split()
+        return entries, partial, None
 
     def extract_from_table(self, table):
-        for row in table('tr').items():
-            yield [col.text().strip() for col in row('td').items()]
+        for row in table.select('tr'):
+            yield [col.text.strip() for col in row.select('td')]
 
 qat = QatService()
 
 
 if __name__ == '__main__':
-    print(qat("potat*"))
+    import sys
+    print(qat(sys.argv[1]))
