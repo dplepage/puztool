@@ -1,13 +1,12 @@
 # -*- coding: utf-8 -*-
-import json
 import multiprocessing as mp
 
-from flask import Flask, request, make_response, render_template, jsonify, Response
+from flask import Flask, request, jsonify
 import requests
-from puztool.service import qat, nutr, QueryError, StructureChanged
-from puztool import morse, nato, lists
-from puztool.text import letters
-from puztool.phone import to_phone, from_phone
+from puztool.service import QueryError, StructureChanged
+from puztool.service import qat, nutr, wordsmith, unphone
+from puztool import morse, nato
+from puztool.phone import to_phone
 import funcy as fn
 
 application = app = Flask(__name__)
@@ -89,7 +88,7 @@ def method(name):
 def handle_qat(query, target):
     defer(run_service, target, qat, query)
     return jsonify({
-        "text": "Processing qat request `{}`...".format(query),
+        "text": "Asking qat to match `{}`...".format(query),
         "response_type": "in_channel",
     })
 
@@ -98,10 +97,26 @@ def handle_qat(query, target):
 def handle_nutr(query, target):
     defer(run_service, target, nutr, query)
     return jsonify({
-        "text": "Processing Nutrimatic request `{}`...".format(query),
+        "text": "Asking Nutrimatic to match `{}`...".format(query),
         "response_type": "in_channel",
     })
 
+@method("anagram")
+@method("wordsmith")
+def handle_anagram(query, target):
+    defer(run_service, target, wordsmith, query)
+    return jsonify({
+        "text": "Finding anagrams for `{}`...".format(query),
+        "response_type": "in_channel",
+    })
+
+@method("unphone")
+def handle_unphone(query, target):
+    defer(run_service, target, unphone, query)
+    return jsonify({
+        "text": "Finding phone matches for `{}`...".format(query),
+        "response_type": "in_channel",
+    })
 
 def add_basic(name, fn):
     @method(name)
@@ -112,21 +127,15 @@ def add_basic(name, fn):
             response_type = 'in_channel'))
     return handle_it
 
+def braille(text):
+    s = " A1B'K2L@CIF/MSP\"E3H9O6R^DJG>NTQ,*5<-U8V.%[$+X!&;:4\\0Z7(_?W]#Y)="
+    return ''.join(chr(0x2800+s.index(t)) for t in text.upper() if t in s)
+
 add_basic("morse", morse.encode)
 add_basic("unmorse", morse.decode)
 add_basic("nato", nato.encode)
 add_basic("unnato", nato.decode)
 add_basic("phone", to_phone)
-
-@method("unphone")
-def phone_encode(query, target):
-    ints = [int(c) for c in query if c in '23456789']
-    return jsonify(run_iterable(from_phone(ints) | lists.ukmac, 'unphone', query))
-
-def braille(text):
-    s = " A1B'K2L@CIF/MSP\"E3H9O6R^DJG>NTQ,*5<-U8V.%[$+X!&;:4\\0Z7(_?W]#Y)="
-    return ''.join(chr(0x2800+s.index(t)) for t in text.upper() if t in s)
-
 add_basic('braille', braille)
 
 if __name__ == '__main__':
