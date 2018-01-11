@@ -145,7 +145,7 @@ def handle_unphone(query, target):
 def add_basic(name, fn):
     @method(name)
     def handle_it(query, target):
-        text = str(fn(query))
+        text = ''.join(str(x) for x in fn(query))
         return jsonify(dict(
             text=text if text else "Nothing to do...",
             response_type = 'in_channel'))
