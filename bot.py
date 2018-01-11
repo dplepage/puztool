@@ -10,7 +10,7 @@ from puztool.text import letters
 from puztool.phone import to_phone, from_phone
 import funcy as fn
 
-app = Flask(__name__)
+application = app = Flask(__name__)
 
 
 def run_service(service, query):
@@ -106,8 +106,9 @@ def handle_nutr(query, target):
 def add_basic(name, fn):
     @method(name)
     def handle_it(query, target):
+        text = str(fn(query))
         return jsonify(dict(
-            text=str(fn(query)),
+            text=text if text else "Nothing to do...",
             response_type = 'in_channel'))
     return handle_it
 
