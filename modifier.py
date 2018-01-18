@@ -1,4 +1,5 @@
 import itertools
+import time
 import funcy as fn
 from .text import shifts
 
@@ -107,13 +108,15 @@ class TextModifier:
         return self.process(wrap(item) for item in val)
 
     def __or__(self, other):
+        if isinstance(other, Terminus):
+            return other.__ror__(self)
         auto = self.autoiterate or other.autoiterate
         return FnModifier(lambda val: other(self(val)), autoiterate=auto)
 
     def __ror__(self, other):
         return self(other)
 
-    def l(self):
+    def all(self):
         '''Return a modifier that auto-iterates.
 
         In general, list(self(val)) and self.l()(val) should be equivalent. This
@@ -121,7 +124,70 @@ class TextModifier:
         of list(get_words() | deletions() | In(sowpods)), which just makes it
         look a little nicer.
         '''
-        return FnModifier(self, autoiterate=True)
+        return self | All()
+
+    def first(self):
+        return self | First()
+
+    def one(self):
+        return self | One()
+
+class Terminus:
+    def __call__(self, val):
+        if isinstance(val, str):
+            val = Result(val)
+        if isinstance(val, Result):
+            val = [val]
+        def wrap(item):
+            if not isinstance(item, Result):
+                return Result(item)
+            return item
+        return self._process(wrap(item) for item in val)
+
+    def _process(self, seq):
+        raise NotImplementedError()
+
+    def __ror__(self, other):
+        if isinstance(other, TextModifier):
+            return ChainTerminus(other, self)
+        return self(other)
+
+class ChainTerminus(Terminus):
+    def __init__(self, *fns):
+        self.fns = fns
+
+    def _process(self, seq):
+        for fn in self.fns:
+            seq = fn(seq)
+        return seq
+
+class UnwrappingTerminus(Terminus):
+    def __init__(self, unwrap=True):
+        self.unwrap = unwrap
+
+class All(UnwrappingTerminus):
+    def _process(self, seq):
+        if self.unwrap:
+            return [x.val for x in seq]
+        return list(seq)
+
+
+class First(UnwrappingTerminus):
+    def _process(self, seq):
+        for item in seq:
+            return item.val if self.unwrap else item
+
+
+class One(UnwrappingTerminus):
+    def _process(self, seq):
+        items = []
+        for item in seq:
+            items.append(item)
+            if len(items) > 1:
+                raise ValueError("Expected only one result")
+        if len(items) == 1:
+            return items[0].val if self.unwrap else item
+        raise ValueError("Expected a result")
 
 
 class Print(TextModifier):
@@ -129,6 +195,17 @@ class Print(TextModifier):
         for item in seq:
             print(item)
             yield item
+
+
+class Info(TextModifier):
+    def _process(self, seq):
+        start = time.process_time()
+        c = 0
+        for item in seq:
+            c += 1
+            yield item
+        end = time.process_time()
+        print("{} items in {:.2}s".format(c, end-start))
 
 
 class FnModifier(TextModifier):
