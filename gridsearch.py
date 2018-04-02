@@ -43,7 +43,7 @@ def parse_dirs(s):
         return chosen
     return s
 
-def iter_strings(grid, len=(3,None), dirs=directions.all):
+def iter_seqs(grid, len=(3,None), dirs=directions.all):
     '''Emit all sequences of letters in grid.
 
     dirs can be a list of tuples, or a comma-separated list of letters
@@ -65,7 +65,7 @@ def iter_strings(grid, len=(3,None), dirs=directions.all):
     letters, len=3 will return all strings made by combining three adjacent
     cells, regardless of how long the actual strings are.
 
-    The results are Result objects where .val is the string in question
+    The results are Result objects where .val is the sequence in question
     and .provenance is a tuple of (start, end) indicating where in the grid
     the word was found.
     '''
@@ -95,5 +95,9 @@ def iter_strings(grid, len=(3,None), dirs=directions.all):
                     if (points[1].clip(0,w-1) != points[1]).any():
                         break
                     dr, dc = dir.flat
-                    yield Result(''.join(grid[list(points)]),
-                        ((row, col), (row+(i-1)*dr, col+(i-1)*dc)))
+                    yield Result(list(grid[list(points)]),
+                        (row, col), (row+(i-1)*dr, col+(i-1)*dc))
+
+def iter_strings(grid, len=(3,None), dirs=directions.all):
+    for r in iter_seqs(grid, len, dirs):
+        yield Result(''.join(r.val), *r.provenance)
