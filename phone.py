@@ -1,6 +1,6 @@
 from itertools import product
 from .text import lowers
-from .modifier import Result
+from .modifier import Result, fn_modifier
 
 keypad = {
     2:'abc',
@@ -25,5 +25,7 @@ def from_phone(sequence):
     for combo in product(*strings):
         yield Result(''.join(combo), sequence)
 
-def from_word(word):
-    return from_phone(to_phone(word))
+@fn_modifier
+def from_word(result):
+    for r in from_phone(to_phone(result.val)):
+        yield result.extend(r.val)
