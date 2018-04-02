@@ -392,6 +392,7 @@ class Swapper:
         self.start = start
         self.alphabet = alphabet
         self.subst = alphabet
+        self.fixed = set()
 
     @property
     def end(self):
@@ -400,9 +401,45 @@ class Swapper:
     def swap(self, first, second=None):
         if second is None:
             first, second = first
+        conflict = set()
+        for a,b in zip(first, second):
+            if a == b:
+                continue
+            if a in self.fixed:
+                conflict.add(a)
+            if b in self.fixed:
+                conflict.add(b)
+        if conflict:
+            raise ValueError(f"Fixed chars: {conflict}")
         sw = getswap(first, second, alphabet=self.alphabet)
         self.subst = swap(self.subst, self.alphabet, sw)
 
+    def p(self):
+        x = self.end
+        for c in self.fixed:
+            x = x.replace(c, c.upper())
+        print(x)
+
+    def h(self):
+        from IPython.core.display import HTML
+        s = ''
+        for c in self.end:
+            if c in self.fixed:
+                s += f"<b>{c.upper()}</b>"
+            else:
+                s += f"<span style='color:gray'>{c}</span>"
+        return HTML(s)
+
+    def sf(self, **kw):
+        for a,b in kw.items():
+            self.swap(a,b)
+            self.fix(b)
+
     def sp(self, first, second=None):
         self.swap(first, second)
-        print(self.end)
+        self.p()
+
+    def fix(self, letters=None, **kw):
+        if letters:
+            self.fixed |= set(letters)
+        self.sf(**kw)
