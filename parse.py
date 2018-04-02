@@ -19,7 +19,7 @@ from pandas.io.clipboard import clipboard_get
 
 def guess_splitter(lines):
     if all('\t' in line for line in lines):
-        return r'\t'
+        return r'\t+'
     elif all(',' in line for line in lines):
         return r', *'
     elif all(re.search("\W", line) for line in lines):
