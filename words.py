@@ -85,8 +85,9 @@ class WordTree(object):
 # Coincidentally, the `set` property is exactly what modifiers.In uses, so we
 # can just inherit from In to turn WordLists into filters!
 class WordList(In):
-    def __init__(self, path):
-        self.path = path
+    def __init__(self, words=None, path=None):
+        self._path = path
+        self._words = words
 
     def open(self):
         return self.path.open()
@@ -94,7 +95,10 @@ class WordList(In):
     @property
     @lru_cache()
     def list(self):
-        return self.open().read().splitlines()
+        if self._words is not None:
+            return self._words
+        with self._path.open() as f:
+            return f.read().splitlines()
 
     @property
     @lru_cache()
@@ -138,6 +142,9 @@ class WordList(In):
     def __iter__(self):
         yield from self.list
 
+    def __len__(self):
+        return len(self.set)
+
 class Lists:
     def __init__(self, data_dir=None):
         self._cache = {}
@@ -149,7 +156,7 @@ class Lists:
         if attr not in self._cache:
             path = self.data_dir/'{}.txt'.format(attr)
             if path.exists():
-                self._cache[attr] = WordList(path)
+                self._cache[attr] = WordList(path=path)
         return self._cache[attr]
 
     def __getattr__(self, attr):
