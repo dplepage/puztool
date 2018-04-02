@@ -1,6 +1,8 @@
 import itertools
 import time
 import funcy as fn
+import pandas as pd
+
 from .text import shifts
 
 class Result:
@@ -10,14 +12,14 @@ class Result:
     the words but also tell you where in the grid it found each word.
 
     '''
-    def __init__(self, val, provenance=None):
+    def __init__(self, val, *provenance):
         self.val = val
-        self.provenance = (provenance,) if provenance is not None else ()
+        self.provenance = provenance
 
-    def extend(self, new_val, provenance=None):
-        if provenance is None:
-            provenance = self.val
-        return Result(new_val, self.provenance + (provenance,))
+    def extend(self, new_val, *provenance):
+        if not provenance:
+            provenance = (self.val,)
+        return Result(new_val, *self.provenance, *provenance)
 
     def __repr__(self):
         return '<{}>'.format(self.val)
@@ -83,14 +85,8 @@ class TextModifier:
     word was before a letter was deleted and where in the grid the original
     string was.
     '''
-    autoiterate = False
-
-    def __init__(self, autoiterate=False):
-        self.autoiterate = autoiterate
 
     def process(self, seq):
-        if self.autoiterate:
-            return list(self._process(seq))
         return self._process(seq)
 
     def _process(self, seq):
@@ -110,27 +106,42 @@ class TextModifier:
     def __or__(self, other):
         if isinstance(other, Terminus):
             return other.__ror__(self)
-        auto = self.autoiterate or other.autoiterate
-        return FnModifier(lambda val: other(self(val)), autoiterate=auto)
+        return fn_modifier(lambda val: other(self(val)))()
 
     def __ror__(self, other):
         return self(other)
 
-    def all(self):
-        '''Return a modifier that auto-iterates.
+    def all(self, unwrap=True):
+        '''Returns a Terminus that will generate a list of results.
 
-        In general, list(self(val)) and self.l()(val) should be equivalent. This
-        lets you write e.g. get_words() | deletions() | In(sowpods).l() instead
-        of list(get_words() | deletions() | In(sowpods)), which just makes it
-        look a little nicer.
+        In general, list(self(val)) and self.all()(val) should be equivalent.
+        This lets you write e.g. get_words() | deletions() | In(sowpods).all()
+        instead of list(get_words() | deletions() | In(sowpods)), which just
+        makes it look a little nicer.
         '''
-        return self | All()
+        return self | All(unwrap)
 
-    def first(self):
-        return self | First()
+    def first(self, unwrap=True):
+        '''Returns a Terminus that returns the first result.
 
-    def one(self):
-        return self | One()
+        Generally items() | modifier().first() should be the same value as
+        list(items()|modifer())[0], except that A) it won't iterate past the
+        first item, and B) it'll return None if there are no items.
+        '''
+        return self | First(unwrap)
+
+    def one(self, unwrap=True):
+        '''Returns a Terminus that returns the single result or complains.
+
+        This is like .first(), except that if no results are returned OR if more
+        than one result is returned it raises an error. This is useful in cases
+        where you're assuming there's only one result but want to verify as you
+        go.
+        '''
+        return self | One(unwrap)
+
+    def df(self):
+        return self | DF()
 
 class Terminus:
     def __call__(self, val):
@@ -172,6 +183,10 @@ class All(UnwrappingTerminus):
         return list(seq)
 
 
+class DF(Terminus):
+    def _process(self, seq):
+        return pd.DataFrame(((item.val,) + item.provenance) for item in seq)
+
 class First(UnwrappingTerminus):
     def _process(self, seq):
         for item in seq:
@@ -184,41 +199,54 @@ class One(UnwrappingTerminus):
         for item in seq:
             items.append(item)
             if len(items) > 1:
-                raise ValueError("Expected only one result")
+                raise ValueError("Expected only one result (got {})".format(items))
         if len(items) == 1:
             return items[0].val if self.unwrap else item
         raise ValueError("Expected a result")
 
 
 class Print(TextModifier):
+    def __init__(self, with_prov=False):
+        self.with_prov = with_prov
+
     def _process(self, seq):
         for item in seq:
-            print(item)
+            if self.with_prov:
+                print(f'{item.val} {item.provenance}')
+            else:
+                print(item)
             yield item
 
 
 class Info(TextModifier):
+    def __init__(self, progress=True):
+        self.progress = progress
+
     def _process(self, seq):
         start = time.process_time()
         c = 0
         for item in seq:
             c += 1
+            if self.progress:
+                print(f"\r{c} items...", end='')
             yield item
         end = time.process_time()
-        print("{} items in {:.2}s".format(c, end-start))
+        print(f"{c} items in {end-start:.2}s".format(c, end-start))
 
 
-class FnModifier(TextModifier):
-    def __init__(self, fn, autoiterate=False):
-        super().__init__(autoiterate)
-        self.fn = fn
+def fn_modifier(fn):
+    class Modifier(TextModifier):
+        def __init__(self, *a, **kw):
+            self.a = a
+            self.kw = kw
+            self.fn = fn
 
-    def _process(self, seq):
-        for item in seq:
-            yield from self.fn(item)
+        def _process(self, seq):
+            for item in seq:
+                yield from self.fn(item, *self.a, **self.kw)
+    return Modifier
 
-
-@FnModifier
+@fn_modifier
 def deletions(result):
     '''Return all strings generated from the input by removing one letter.'''
     s = result.val
@@ -226,14 +254,30 @@ def deletions(result):
         yield result.extend(''.join(s[:i])+''.join(s[i+1:]))
 
 
-@FnModifier
+@fn_modifier
 def perms(result):
     '''Return all strings generated from the input by transposition.'''
     for p in itertools.permutations(result.val):
         yield result.extend(''.join(p))
 
 
-@FnModifier
+@fn_modifier
+def substrings(result):
+    '''Return all strings generated from the input by transposition.'''
+    for i in range(len(result.val)):
+        for j in range(i+1, len(result.val)+1):
+            yield result.extend(result.val[i:j])
+
+@fn_modifier
+def of_length(result, low=1, high=None):
+    if len(result.val) < low:
+        return
+    if high is not None and len(result.val) > high:
+        return
+    yield result
+
+
+@fn_modifier
 def caesars(result):
     '''Return all strings generated from the input by caesar shifting.'''
     for (i, s) in shifts(result.val):
@@ -244,8 +288,7 @@ class In(TextModifier):
 
     Useful with word lists.
     '''
-    def __init__(self, set, autoiterate=False):
-        super().__init__(autoiterate)
+    def __init__(self, set):
         self.set = set
 
     def _process(self, seq):

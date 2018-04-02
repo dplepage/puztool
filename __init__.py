@@ -4,7 +4,7 @@ from .text import shift, unshift, normalize, lowers
 from .misc import smoosh, show
 from .dropquote import DropQuote
 from .service import qat, nutr
-from .modifier import FnModifier, TextModifier, In, deletions, perms, Unique
+from .modifier import TextModifier, In, deletions, perms, Unique, fn_modifier
 from . import gridsearch
 from . import logic_grid
 
@@ -24,7 +24,7 @@ __all__ = [
     'show',
     'DropQuote',
     'qat', 'nutr',
-    'FnModifier',
+    'fn_modifier',
     'TextModifier',
     'In',
     'deletions',
