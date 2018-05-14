@@ -23,17 +23,19 @@ def imread(fname, format=None):
         return read_png(fname)
     return np.array(Image.open(fname))
 
-def imshow(data, norm=False):
+def toimg(data, norm=False):
     if data.dtype == bool:
         img = (data*255).astype('uint8')
     else:
         if norm:
-            data = data*1.0/data.max()
+            data = (data-data.min())*1.0/data.max()
         if data.max() < 1:
             img = (data*255).astype('uint8')
         elif data.max() < 256:
             img = data.astype('uint8')
         else:
             img = (data*255.0/data.max()).astype('uint8')
-    return Image.fromarray(img).show()
+    return Image.fromarray(img)
 
+def imshow(data, norm=False):
+    return toimg(data, norm).show()

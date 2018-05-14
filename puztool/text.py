@@ -426,6 +426,10 @@ class Swapper:
         for c in self.end:
             if c in self.fixed:
                 s += f"<b>{c.upper()}</b>"
+            elif c == '\n':
+                s += '<br/>'
+            elif c == ' ':
+                s += '&nbsp;'
             else:
                 s += f"<span style='color:gray'>{c}</span>"
         return HTML(s)

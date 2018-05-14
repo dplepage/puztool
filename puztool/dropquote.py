@@ -1,10 +1,62 @@
+import numpy as np
+
 from .text import letters
+from .misc import smoosh
+from .words import lists
+
+class Segment:
+    def __init__(self, start, end):
+        self.start = start
+        self.end = end
+
+    @property
+    def len(self):
+        return self.end - self.start
+
+    def __repr__(self):
+        return f'Segment({self.start!r}, {self.end!r})'
+
+def make_segs(s):
+    segs = []
+    seg = None
+    for i,c in enumerate(s):
+        if c != '?':
+            if seg is not None:
+                segs.append(Segment(seg, i))
+                seg = None
+            continue
+        if seg is None:
+            seg = i
+    return segs
+
 
 class DropQuote:
-    def __init__(self, columns, wordlist):
+    def __init__(self, columns, gridstr=None, wordlist=lists.default):
         self.columns = [list(c) for c in columns]
         self.wordlist = wordlist
+        self.segs = None
+        self.width = len(self.columns)
+        self.height = max(len(c) for c in self.columns)
+        if gridstr:
+            self.segs = make_segs(gridstr)
+            self.height = int(np.ceil(len(gridstr)/self.width))
         self.update_sets()
+
+    def p(self):
+        cols = self.columns
+        x = np.empty((len(cols), max(len(c) for c in cols)), dtype=str)
+        x[:] = ' '
+        for i,c in enumerate(self.columns):
+            x[i, :len(c)] = sorted(c)
+        print('\n'.join(smoosh(x[:,::-1].T)))
+        if self.segs:
+            print('-'*len(self.columns))
+            x = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+            gstr = list(' '*self.height*self.width)
+            for i, seg in enumerate(self.segs):
+                gstr[seg.start:seg.end] = x[i%len(x)]*seg.len
+            for i in range(0, len(gstr), len(self.columns)):
+                print(''.join(gstr[i:i+len(self.columns)]))
 
     def update_sets(self):
         self.sets = [set(c) for c in self.columns]

@@ -4,6 +4,7 @@ from pathlib import Path
 import os
 
 from .modifier import In
+from .text import swappable
 
 here = Path(__file__).parent
 
@@ -79,7 +80,6 @@ class WordTree(object):
             if self.has(letter):
                 yield from self.search(rest)
 
-
 # Lazy loading wordlists and trees
 
 # Coincidentally, the `set` property is exactly what modifiers.In uses, so we
@@ -114,6 +114,20 @@ class WordList(In):
         for chars in product(*sets):
             word = ''.join(chars)
             if word in self.set:
+                yield word
+
+    def matches(self, regex):
+        if isinstance(regex, str):
+            regex = re.compile(regex)
+        for word in self:
+            if regex.match(word):
+                yield word
+
+    def patmatch(self, pattern):
+        for word in self:
+            if len(word) != len(pattern):
+                continue
+            if swappable(word, pattern):
                 yield word
 
     def search_phrases(self, sets):

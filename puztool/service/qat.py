@@ -1,4 +1,5 @@
 import re
+from string import ascii_uppercase as uppers
 from bs4 import BeautifulSoup
 
 from .service import Service, QueryError, StructureChanged
@@ -28,6 +29,28 @@ class QatService(Service):
     def extract_from_table(self, table):
         for row in table.select('tr'):
             yield [col.text.strip() for col in row.select('td')]
+
+class PatMatch(QatService):
+    '''Simple pattern-matching via qat.
+
+    This behaves just like QatService, except it adds constraints that every
+    variable in the expression must have length 1 and be distinct. Thus,
+    a query for ABACA will be expanded to the query
+    ACABC;|A|=1;|B|=1;|C|=1;!=ABC
+
+    This is particularly useful when solving substitution ciphers - given a
+    string like QGQDLATAHL, for example, it will tell you that the only match
+    know to qat is SUSTENANCE.
+    '''
+    def expand_query(self, query):
+        chars = set(query) & set(uppers)
+        for c in chars:
+            query+=f';|{c}|=1'
+        query+=f';!={"".join(chars)}'
+        return query
+
+    def mkurl(self, query):
+        return super()(self.expand_query(query))
 
 qat = QatService()
 
