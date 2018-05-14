@@ -1,4 +1,13 @@
 # -*- coding: utf-8 -*-
+'''A webbot for doing useful things.
+
+This runs a flask app where posting a string to /puzz will run a command and
+send the result to a target url. Commands include things like qat, nutrimatic,
+braille, etc. This is particularly useful if you spin it up somewhere public and
+make slack commands that point to it: from within your slack, you'll then be
+able to do e.g. `/puzz qat fooA;barA` and it'll print the list of matching
+results.
+'''
 import multiprocessing as mp
 
 from flask import Flask, request, jsonify
