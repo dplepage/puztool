@@ -2,5 +2,5 @@
 .DS_Store
 *.pyc
 __pycache__
-data/wordlists/*.txt
-!data/wordlists/ospd.txt
+puztool/data/wordlists/*.txt
+!puztool/data/wordlists/ospd.txt
