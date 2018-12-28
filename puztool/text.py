@@ -24,14 +24,30 @@ import pandas as pd
 
 # Monkeypatch Counter to support flattening
 
-def uncount(counter):
+def uncount(counter, sort_key=None, sep=''):
     '''Flatten this counter.
 
     >>> c = Counter("foofoobarbar") - Counter("foobar")
     >>> c.uncount()
     'foobar'
+    >>> c.uncount(sort_key='alph')
+    'abfoor'
+    >>> c.uncount(sort_key='freq')
+    'ooabfr'
+    >> c.uncount(True, sep=' - ')
+    'a - b - f - oo - r'
     '''
-    return ''.join(x*y for (x,y) in counter.items())
+    pairs = list(counter.items())
+    if sort_key:
+        pairs.sort(key = lambda p:p[0])
+    if sort_key == 'freq':
+        pairs.sort(key=lambda p: p[1])
+    elif sort_key in ['alph', True]:
+        pass
+    elif sort_key:
+        pairs.sort(key=sort_key)
+    return sep.join(x*y for (x,y) in pairs)
+
 
 Counter.uncount = uncount
 
@@ -67,6 +83,11 @@ def ident(arr):
     arr = as_np(arr)
     if not np.issubdtype(arr.dtype, np.number):
         # Assume it's a string or object type of some sort
+        try:
+            if not set(''.join(arr))-set('01'):
+                return 'b'
+        except:
+            pass
         return 'a'
     if arr.max() < 27:
         return 'i'
@@ -98,6 +119,8 @@ def as_(arr, which):
         return as_i(arr)
     if which == 'o':
         return as_o(arr)
+    if which == 'b':
+        return as_b(arr)
     raise ValueError("Unrecognized type: {}".format(which))
 
 def as_a(arr):
@@ -105,6 +128,8 @@ def as_a(arr):
     arr = as_np(arr)
     if t == 'a':
         return ''.join(arr)
+    if t == 'b':
+        return as_a([int(s,2) for s in arr])
     if t == 'i':
         ords = arr - 1 + ord('a')
         ords[ords==ord('a')-1] = ord('.')
@@ -122,6 +147,11 @@ def as_i(arr):
 def as_o(arr):
     a = as_a(arr)
     return np.array(list(map(ord, a)))
+
+def as_b(arr):
+    i = as_i(arr)
+    return np.array(['{:05b}'.format(c) for c in i])
+
 
 def lmasks(ords):
     '''Find which items in an ordinal array are letters.
@@ -387,6 +417,24 @@ class Swapper:
     >>> s.subst
     'ebadcfgnijkpxhotqrsluvwmyz'
 
+    You can also fix letters in place; fixed letters will be capitalized in
+    output and cannot be further swapped:
+
+    >>> s.fix('am')
+    >>> s.p()
+    A MAn, A plAn, A cAnAl: pAnAMA
+    >>> s.sp('nah', 'oxc')
+    Traceback (most recent call last):
+        ...
+    ValueError: Fixed chars: {'a'}
+
+    s.sf (swap-and-fix) allows you to swap and fix letters in a single step,
+    using kwarg syntax:
+
+    >>> s = Swapper('c xch, c ltch, c echct: lchcxc')
+    >>> s.sf(cxch='aman')
+    >>> s.p()
+    A MAN, A ltAN, A eANAt: lANAMA
     '''
     def __init__(self, start, alphabet=lowers):
         self.start = start
@@ -415,12 +463,14 @@ class Swapper:
         self.subst = swap(self.subst, self.alphabet, sw)
 
     def p(self):
+        '''Print our current result'''
         x = self.end
         for c in self.fixed:
             x = x.replace(c, c.upper())
         print(x)
 
     def h(self):
+        '''Print our current result as Jupyter-enabled HTML'''
         from IPython.core.display import HTML
         s = ''
         for c in self.end:
@@ -435,6 +485,7 @@ class Swapper:
         return HTML(s)
 
     def sf(self, **kw):
+        '''Swap-and-fix'''
         for a,b in kw.items():
             self.swap(a,b)
             self.fix(b)
