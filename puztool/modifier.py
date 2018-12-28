@@ -3,7 +3,7 @@ import time
 import funcy as fn
 import pandas as pd
 
-from .text import shifts
+from .text import shifts, lowers
 
 class Result:
     '''A string plus some indication of where it came from.
@@ -252,6 +252,14 @@ def deletions(result):
     s = result.val
     for i in range(len(s)):
         yield result.extend(''.join(s[:i])+''.join(s[i+1:]))
+
+@fn_modifier
+def additions(result):
+    '''Return all strings generated from the input by adding one letter.'''
+    s = result.val
+    for i in range(len(s)+1):
+        for c in lowers:
+            yield result.extend(''.join(s[:i]) + c + ''.join(s[i:]))
 
 
 @fn_modifier
