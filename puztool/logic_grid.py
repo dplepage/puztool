@@ -125,7 +125,7 @@ class CatMan:
     def __getitem__(self, key):
         if isinstance(key, (list, tuple)):
             name, val = key
-            key = '{}:{}'.format()
+            key = f'{name}:{val}'
         if key in self.lookup:
             return self.get_info(key)
         return self.catmap[key]
@@ -358,7 +358,7 @@ class Solver(Grid):
             self.constraints.extend(self.cons_grid())
             self.model = nj.Model(*self.constraints)
             self.solver = self.model.load(solvername)
-        assert self.solver.solve()
+        assert self.solver.solve(), "No solution exists"
         return self._make_soln()
 
 
