@@ -26,3 +26,31 @@ def show(data):
         else:
             data = smoosh(data, ' ')
     print(data)
+
+
+def _mmind(a,b):
+    for i,c in enumerate(a):
+        if b[i] == c:
+            yield '●'
+        elif c in b:
+            yield '○'
+
+def mmind(a,b):
+    '''Mastermind implementation.
+
+    >>> mmind("stab", "ruby")
+    '○'
+    >>> mmind("urbs", "ruby")
+    '○○●'
+    >>> mmind("bury", "ruby")
+    '○●○●'
+    >>> mmind("ruby", "ruby")
+    '●●●●'
+
+    Disclaimer: Wrong when there are duplicates:
+    >>> mmind("ooo", "oof") # (should be just '●●')
+    '●●○'
+
+
+    '''
+    return ''.join(_mmind(a,b))
