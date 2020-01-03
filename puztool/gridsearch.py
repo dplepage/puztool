@@ -1,6 +1,20 @@
+import attr
 import numpy as np
+from typing import Tuple
 
-from .modifier import Result
+from .result import Result, ProvEntry
+from .pipeline import source
+
+@attr.s(auto_attribs=True)
+class FromGrid(ProvEntry):
+    start: Tuple[int, int]
+    end: Tuple[int, int]
+
+    def __str__(self):
+        return f"{self.start}->{self.end}"
+
+    def __iter__(self):
+        yield from (self.start, self.end)
 
 class DIRS:
     l = left = w = west = np.array([0,-1])
@@ -11,9 +25,9 @@ class DIRS:
     ur = upright = ne = northeast = u+r
     dl = downleft = sw = southwest = d+l
     dr = downright = se = southeast = d+r
-    h = hor = horizontals = [l, r]
-    v = ver = verticals = [u, d]
-    di = diagonals = [ul, ur, dl, dr]
+    h = hor = horizontals = (l, r)
+    v = ver = verticals = (u, d)
+    di = diagonals = (ul, ur, dl, dr)
     o = ortho = h+v
     a = all = ortho + diagonals
 
@@ -43,7 +57,9 @@ def parse_dirs(s):
         return chosen
     return s
 
-def iter_seqs(grid, len=(3,None), dirs=directions.all):
+
+@source
+def iter_seqs(grid, len=(3,None), dirs=directions.all, wrap=False):
     '''Emit all sequences of letters in grid.
 
     dirs can be a list of tuples, or a comma-separated list of letters
@@ -89,15 +105,25 @@ def iter_seqs(grid, len=(3,None), dirs=directions.all):
                 dir = np.array(dir).reshape(2,1)
                 for i in range(min_len, max_len+1):
                     points = start + dir*np.arange(i)
-                    # bounds check - stop if we've gone off the end
-                    if (points[0].clip(0,h-1) != points[0]).any():
-                        break
-                    if (points[1].clip(0,w-1) != points[1]).any():
-                        break
+                    if wrap:
+                        points[0] = points[0]%h
+                        points[1] = points[1]%w
+                    else:
+                        # bounds check - stop if we've gone off the end
+                        if (points[0].clip(0,h-1) != points[0]).any():
+                            break
+                        if (points[1].clip(0,w-1) != points[1]).any():
+                            break
                     dr, dc = dir.flat
-                    yield Result(list(grid[list(points)]),
-                        (row, col), (row+(i-1)*dr, col+(i-1)*dc))
+                    items = list(grid[tuple(points)])
+                    prov = (FromGrid(
+                        start = (row, col),
+                        end = (row+(i-1)*dr, col+(i-1)*dc)),)
+                    yield Result(items, prov)
 
-def iter_strings(grid, len=(3,None), dirs=directions.all):
-    for r in iter_seqs(grid, len, dirs):
-        yield Result(''.join(r.val), *r.provenance)
+def _join_val(item):
+    return attr.evolve(item, val=''.join(item.val))
+
+def iter_strings(grid, len=(3,None), dirs=directions.all, wrap=False):
+    '''iter_seqs but ''.join()'s the resulting values'''
+    return iter_seqs(grid, len, dirs, wrap) | _join_val

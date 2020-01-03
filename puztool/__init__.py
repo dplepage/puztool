@@ -5,8 +5,9 @@ from .words import lists
 from .text import shift, unshift, normalize, lowers
 from .misc import smoosh, show
 from .dropquote import DropQuote
+from .pipeline import P
 from .service import qat, nutr
-from .modifier import TextModifier, In, deletions, perms, Unique, fn_modifier
+from . import pipes
 from . import gridsearch
 from . import logic_grid
 
@@ -31,12 +32,8 @@ __all__ = [
     'show',
     'DropQuote',
     'qat', 'nutr',
-    'fn_modifier',
-    'TextModifier',
-    'In',
-    'deletions',
-    'perms',
-    'Unique',
+    'pipes',
+    'P',
     'gridsearch',
     'logic_grid',
 ]

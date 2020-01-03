@@ -2,8 +2,10 @@ from functools import lru_cache
 from itertools import product
 from pathlib import Path
 import os
+import re
 
-from .modifier import In
+from .pipeline import Modifier
+from .result import val
 from .text import swappable
 
 here = Path(__file__).parent
@@ -22,11 +24,11 @@ def make_tree(wordlist):
     return tree
 
 def find_words(tree):
-    for c, val in tree.items():
+    for c, v in tree.items():
         if c == '':
-            yield val
+            yield v
         else:
-            yield from find_words(val)
+            yield from find_words(v)
 
 class WordTree(object):
     def __init__(self, list=None, tree=None):
@@ -81,13 +83,13 @@ class WordTree(object):
                 yield from self.search(rest)
 
 # Lazy loading wordlists and trees
-
-# Coincidentally, the `set` property is exactly what modifiers.In uses, so we
-# can just inherit from In to turn WordLists into filters!
-class WordList(In):
+class WordList(Modifier):
     def __init__(self, words=None, path=None):
         self._path = path
         self._words = words
+
+    def _process(self, seq):
+        return (x for x in seq if val(x) in self.set)
 
     def open(self):
         return self.path.open()
