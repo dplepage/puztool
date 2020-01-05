@@ -1,6 +1,7 @@
 from itertools import product
 from .text import lowers
-from .modifier import Result, fn_modifier
+from .result import Result
+from .pipeline import item_mod
 
 keypad = {
     2:'abc',
@@ -25,7 +26,7 @@ def from_phone(sequence):
     for combo in product(*strings):
         yield Result(''.join(combo), sequence)
 
-@fn_modifier
+@item_mod
 def from_word(result):
     for r in from_phone(to_phone(result.val)):
         yield result.extend(r.val)

@@ -10,8 +10,8 @@ results.
 '''
 import multiprocessing as mp
 
-from flask import Flask, request, jsonify
 import requests
+from flask import Flask, request, jsonify
 from puztool.service import QueryError, StructureChanged
 from puztool.service import qat, nutr, wordsmith, unphone
 from puztool import morse, nato
@@ -69,6 +69,10 @@ def run_iterable(iterable, name, query):
 
 
 def defer(fn, target, *args):
+    if target is None:
+        f = fn(*args)
+        print(f)
+        return f
     def doit():
         requests.post(target, json=fn(*args))
     p = mp.Process(target=doit)
@@ -85,7 +89,7 @@ Search commands:
 > *unphone* - Get words from a phone # from <http://www.dialabc.com/words/search/index.html|DialABC>
 
 Conversion commands:
-> *braille* - Convert text to <https://en.wikipedia.org/wiki/Braille|braille>
+> *braille*/*unbraille* - Convert text to <https://en.wikipedia.org/wiki/Braille|braille>
 > *phone* - Convert text to <https://en.wikipedia.org/wiki/Phoneword|a phone number>
 > *morse*/*unmorse* - Convert text to or from <https://en.wikipedia.org/wiki/Morse_code|morse code>
 > *nato*/*unnato* - Convert text to or from <https://en.wikipedia.org/wiki/NATO_phonetic_alphabet|nato phonetics>
@@ -113,6 +117,9 @@ def method(name):
             query = request.form['text']
             target = request.form['response_url']
             return fn(query, target)
+        @app.route(f"/g/{name}/<query>", methods=["GET"], endpoint="g"+name)
+        def g_endpoint(query):
+            return fn(query, None)
         fns[name] = fn
         return fn
     return wrapper
@@ -156,20 +163,30 @@ def add_basic(name, fn):
     def handle_it(query, target):
         text = ''.join(str(x) for x in fn(query))
         return jsonify(dict(
-            text=text if text else "Nothing to do...",
+            text=f"`{text}`" if text else "Nothing to do...",
             response_type = 'in_channel'))
     return handle_it
 
-def braille(text):
-    s = " A1B'K2L@CIF/MSP\"E3H9O6R^DJG>NTQ,*5<-U8V.%[$+X!&;:4\\0Z7(_?W]#Y)="
-    return ''.join(chr(0x2800+s.index(t)) for t in text.upper() if t in s)
+class Braille:
+    lookup = " A1B'K2L@CIF/MSP\"E3H9O6R^DJG>NTQ,*5<-U8V.%[$+X!&;:4\\0Z7(_?W]#Y)="
+    @staticmethod
+    def encode(text):
+        s = Braille.lookup
+        return ''.join(chr(0x2800+s.index(t)) for t in text.upper() if t in s)
+
+    @staticmethod
+    def decode(text):
+        s = Braille.lookup
+        return ''.join(s[ord(t)-0x2800] for t in text.upper())
+
 
 add_basic("morse", morse.encode)
 add_basic("unmorse", morse.decode)
 add_basic("nato", nato.encode)
 add_basic("unnato", nato.decode)
 add_basic("phone", to_phone)
-add_basic('braille', braille)
+add_basic('braille', Braille.encode)
+add_basic('unbraille', Braille.decode)
 
 if __name__ == '__main__':
     app.run(debug=True)

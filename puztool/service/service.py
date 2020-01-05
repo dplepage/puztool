@@ -47,11 +47,11 @@ class Service:
 
     def __call__(self, query, verbose=True, fmt='df'):
         url = self.mkurl(query)
-        start = time.process_time()
+        start = time.perf_counter()
         page = urlopen(url).read()
         items, partial, total = self.parse_page(query, page)
         items = list(items)
-        end = time.process_time()
+        end = time.perf_counter()
         result = Result(query, url, total, end-start, partial, items)
         if verbose:
             print(result.status)
@@ -61,5 +61,5 @@ class Service:
             return pd.DataFrame(result.l)
         return result
 
-    def parse_page(self, page):
+    def parse_page(self, query, page):
         raise NotImplementedError()

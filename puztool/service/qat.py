@@ -4,6 +4,10 @@ from bs4 import BeautifulSoup
 
 from .service import Service, QueryError, StructureChanged
 
+def extract_from_table(table):
+    for row in table.select('tr'):
+        yield [col.text.strip() for col in row.select('td')]
+
 
 class QatService(Service):
     urlbase = "http://www.quinapalus.com/cgi-bin/qat?pat={}&ent=Search&dict=0"
@@ -20,15 +24,12 @@ class QatService(Service):
         if len(tables) > 1:
             raise StructureChanged("Multiple matches for .in form + table")
         if len(tables) == 1:
-            entries = self.extract_from_table(tables[0])
+            entries = extract_from_table(tables[0])
         else:
             texts = page.select(".in")[0].findAll(text=True, recursive=False)
             entries = ''.join(texts).split()
         return entries, partial, None
 
-    def extract_from_table(self, table):
-        for row in table.select('tr'):
-            yield [col.text.strip() for col in row.select('td')]
 
 class PatMatch(QatService):
     '''Simple pattern-matching via qat.
@@ -42,7 +43,8 @@ class PatMatch(QatService):
     string like QGQDLATAHL, for example, it will tell you that the only match
     know to qat is SUSTENANCE.
     '''
-    def expand_query(self, query):
+    @staticmethod
+    def expand_query(query):
         chars = set(query) & set(uppers)
         for c in chars:
             query+=f';|{c}|=1'
@@ -50,9 +52,10 @@ class PatMatch(QatService):
         return query
 
     def mkurl(self, query):
-        return super()(self.expand_query(query))
+        return super().mkurl(self.expand_query(query))
 
 qat = QatService()
+qatpat = PatMatch()
 
 
 if __name__ == '__main__':

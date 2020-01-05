@@ -9,7 +9,7 @@ def encode(s):
     return ' '.join([to_nato[c] for c in s.lower() if c in to_nato])
 
 def decode(s):
-    return ''.join([from_nato[word] for word in s.lower().split() if word in from_nato])
+    return ''.join([from_nato.get(word, "?") for word in s.lower().split()])
 
 if __name__ == '__main__':
     import sys

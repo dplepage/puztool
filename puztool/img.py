@@ -18,12 +18,12 @@ def read_png(fname):
     data = np.array(list(data))
     return data.reshape(h, w, info['planes'])
 
-def imread(fname, format=None):
+def read(fname, format=None):
     if format == 'png' or (format is None and fname.endswith("png")):
         return read_png(fname)
     return np.array(Image.open(fname))
 
-def toimg(data, norm=False):
+def toimg(data, norm=False, zoom=1):
     if data.dtype == bool:
         img = (data*255).astype('uint8')
     else:
@@ -35,7 +35,21 @@ def toimg(data, norm=False):
             img = data.astype('uint8')
         else:
             img = (data*255.0/data.max()).astype('uint8')
-    return Image.fromarray(img)
+    im = Image.fromarray(img)
+    if zoom != 1:
+        im = im.resize((int(im.width*zoom), int(im.height*zoom)))
+    return im
 
-def imshow(data, norm=False):
+def show(data, norm=False):
     return toimg(data, norm).show()
+
+def subrect(data, mask=None, pad=0):
+    '''Return a sub-rectangle of data containing everywhere mask is True.'''
+    if mask is None:
+        mask = data
+    rows, cols, *rest = np.where(mask)
+    if rest:
+        raise ValueError("Mask must be 2D")
+    rm, rM = rows.min(), rows.max()
+    cm, cM = cols.min(), cols.max()
+    return data[rm-pad:rM+1+pad,cm-pad:cM+1+pad]
