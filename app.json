@@ -2,5 +2,5 @@
   "name": "toolbot",
   "description": "A server for puzzle-related slack commands.",
   "image": "heroku/python",
-  "repository": "https://github.com/dplepage/toolbot",
+  "repository": "https://github.com/dplepage/puztool"
 }

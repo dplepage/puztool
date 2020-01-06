@@ -173,6 +173,10 @@ class Lists:
             path = self.data_dir/'{}.txt'.format(attr)
             if path.exists():
                 self._cache[attr] = WordList(path=path)
+            elif attr == 'default':
+                # No default -> fall back on OSPD
+                # because it's the only one checked in to github
+                self._cache[attr] = self.ospd
         return self._cache[attr]
 
     def __getattr__(self, attr):
