@@ -28,8 +28,9 @@ def run_service(service, query, limit=10):
         url = service.ext_url(query)
         return dict(text=f"<{url}|Query failed>:{query}")
     url = service.ext_url(query)
-    resp = "\n".join(l if isinstance(l, str) else '\t'.join(l) for l in result.l[:limit])
-    count = len(result.l)
+    results = result.l[:limit]
+    resp = "\n".join(l if isinstance(l, str) else '\t'.join(l) for l in results)
+    count = len(results)
     if count < limit:
         cstr = f'{count}'
     elif result.total is None:
