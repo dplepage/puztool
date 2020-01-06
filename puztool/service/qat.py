@@ -25,7 +25,7 @@ class QatService(ScraperService):
         if len(tables) > 1:
             raise StructureChanged("Multiple matches for .in form + table")
         if len(tables) == 1:
-            entries = extract_from_table(tables[0])
+            entries = list(extract_from_table(tables[0]))
         else:
             texts = page.select(".in")[0].findAll(text=True, recursive=False)
             entries = ''.join(texts).split()
