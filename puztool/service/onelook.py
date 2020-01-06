@@ -12,7 +12,7 @@ class OnelookService(Service):
 
     def ext_url(self, query):
         query = quote(query)
-        return f"https://onelook.com/?w={query}&scwo=1"
+        return f"https://onelook.com/?w={query}&scwo=1&ssbp=1"
 
     def get_results(self, query, max_results=20):
         api = datamuse.Datamuse(max_results=max_results)
