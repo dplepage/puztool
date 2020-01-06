@@ -1,9 +1,10 @@
 from bs4 import BeautifulSoup
 
-from .service import Service
+from .service import ScraperService
 
 
-class UnphoneService(Service):
+class UnphoneService(ScraperService):
+    name = "Unphone"
     urlbase = "http://www.dialabc.com/words/search/index.html?pnum={}&dict=american&pad=ext&filter=normal"
 
     def parse_page(self, query, page):

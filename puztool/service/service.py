@@ -33,8 +33,33 @@ class Result(object):
     def __str__(self):
         return '<{}>'.format(self.status)
 
-
 class Service:
+    def ext_url(self, query):
+        raise NotImplementedError()
+
+    def get_results(self, query):
+        raise NotImplementedError()
+
+    def search(self, query, verbose=True, fmt='df'):
+        start = time.perf_counter()
+        items, partial, total = self.get_results(query)
+        end = time.perf_counter()
+        url = self.ext_url(query)
+        result = Result(query, url, total, end-start, partial, items)
+        if verbose:
+            print(result.status)
+        if fmt == 'l':
+            return list(result.l)
+        if fmt == 'df':
+            return pd.DataFrame(result.l)
+        return result
+
+    def __call__(self, query, verbose=True, fmt='df'):
+        return self.search(query, verbose, fmt)
+
+
+
+class ScraperService(Service):
     @property
     def urlbase(self):
         raise NotImplementedError()
@@ -45,21 +70,10 @@ class Service:
     def ext_url(self, query):
         return self.mkurl(query)
 
-    def __call__(self, query, verbose=True, fmt='df'):
+    def get_results(self, query):
         url = self.mkurl(query)
-        start = time.perf_counter()
         page = urlopen(url).read()
-        items, partial, total = self.parse_page(query, page)
-        items = list(items)
-        end = time.perf_counter()
-        result = Result(query, url, total, end-start, partial, items)
-        if verbose:
-            print(result.status)
-        if fmt == 'l':
-            return list(result.l)
-        if fmt == 'df':
-            return pd.DataFrame(result.l)
-        return result
+        return self.parse_page(query, page)
 
     def parse_page(self, query, page):
         raise NotImplementedError()

@@ -1,9 +1,10 @@
 from bs4 import BeautifulSoup
 
-from .service import Service, QueryError
+from .service import ScraperService, QueryError
 
 
-class NutrimaticService(Service):
+class NutrimaticService(ScraperService):
+    name = "Nutrimatic"
     urlbase = "http://nutrimatic.org/?q={}"
 
     def parse_page(self, query, html):

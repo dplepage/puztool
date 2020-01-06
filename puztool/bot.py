@@ -13,7 +13,7 @@ import multiprocessing as mp
 import requests
 from flask import Flask, request, jsonify
 from puztool.service import QueryError, StructureChanged
-from puztool.service import qat, nutr, wordsmith, unphone
+from puztool.service import qat, nutr, wordsmith, unphone, onelook
 from puztool import morse, nato
 from puztool.phone import to_phone
 import funcy as fn
@@ -21,42 +21,53 @@ import funcy as fn
 application = app = Flask(__name__)
 
 
-def run_service(service, query):
+def run_service(service, query, limit=10):
     try:
         result = service(query, verbose=False, fmt='raw')
     except (QueryError, StructureChanged) as p:
         url = service.ext_url(query)
         return dict(text=f"<{url}|Query failed>:{query}")
     url = service.ext_url(query)
-    resp = "\n".join(l if isinstance(l, str) else '\t'.join(l) for l in result.l[:20])
+    resp = "\n".join(l if isinstance(l, str) else '\t'.join(l) for l in result.l[:limit])
     count = len(result.l)
-    if count < 20:
+    if count < limit:
         cstr = f'{count}'
     elif result.total is None:
-        cstr = 'Here are 20'
+        cstr = f'First {count}'
     else:
-        cstr = f'Here are 20 of {result.total}'
-    return {
-        "text": f"<{url}|{cstr} results for `{query}`>.",
-        "response_type": "in_channel",
-        "attachments": [
-            {
-                "text":resp
-            }
-        ]
-    }
+        cstr = f'First {count} of {result.total}'
+    blocks = [{
+        "type": "section",
+        "text": {
+            "type": "mrkdwn",
+            "text": f"{cstr} {service.name} results for `{query}` <{url}|(go to site)>."
+        },
+        "block_id": "text1"
+    }]
+    if resp:
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": resp,
+            },
+        })
+    return dict(
+        blocks = blocks,
+        response_type= "in_channel",
+    )
 
-def run_iterable(iterable, name, query):
+def run_iterable(iterable, name, query, limit=20):
     try:
-        items = list(fn.take(20, iterable))
+        items = list(fn.take(limit, iterable))
     except Exception as e:
         return dict(text=f"Query failed:{e}")
-    resp = "\n".join("".join(l.val) for l in items[:20])
+    resp = "\n".join("".join(l.val) for l in items[:limit])
     count = len(items)
-    if count < 20:
+    if count < limit:
         cstr = f'{count}'
     else:
-        cstr = 'First 20'
+        cstr = f'First {count}'
     return {
         "text": f"{cstr} results for `{name}({query})`.",
         "response_type": "in_channel",
@@ -74,7 +85,20 @@ def defer(fn, target, *args):
         print(f)
         return f
     def doit():
-        requests.post(target, json=fn(*args))
+        try:
+            response = fn(*args)
+        except Exception as e:
+            requests.post(target, json=dict(
+                text = f"Query failed: {e}",
+                response_type = "in_channel",
+            ))
+            return
+        x = requests.post(target, json=response)
+        if x.status_code != 200:
+            requests.post(target, json=dict(
+                text = f"Status post failed with status {x.status_code}",
+                response_type = "in_channel",
+            ))
     p = mp.Process(target=doit)
     p.start()
     return p
@@ -85,6 +109,7 @@ Usage: `/puzz <cmd> <query>`
 Search commands:
 > *qat* - Get matches with <https://www.quinapalus.com/cgi-bin/qat|Qat>
 > *nutrimatic* - Get matches with <https://nutrimatic.org/|Nutrimatic>
+> *onelook* - Get matches with <https://onelook.com/|OneLook>
 > *anagram* - Get anagrams from <https://wordsmith.org/anagram/|Wordsmith>
 > *unphone* - Get words from a phone # from <http://www.dialabc.com/words/search/index.html|DialABC>
 
@@ -106,7 +131,19 @@ def handle_cmd():
         return jsonify(help_msg)
     target = request.form['response_url']
     cmd, rest = query.split(maxsplit=1)
-    return fns[cmd](rest, target)
+    if cmd not in fns:
+        return jsonify({
+            "text": f"No command matches: `{cmd}`...",
+            "response_type": "ephemeral",
+        })
+    try:
+        return fns[cmd](rest, target)
+    except Exception as e:
+        return jsonify({
+            "text": f"Command `{query}` failed: {e}",
+            "response_type": "ephemeral",
+        })
+
 
 fns = {}
 
@@ -129,7 +166,7 @@ def handle_qat(query, target):
     defer(run_service, target, qat, query)
     return jsonify({
         "text": "Asking qat to match `{}`...".format(query),
-        "response_type": "in_channel",
+        "response_type": "ephemeral",
     })
 
 @method("nutr")
@@ -138,7 +175,7 @@ def handle_nutr(query, target):
     defer(run_service, target, nutr, query)
     return jsonify({
         "text": "Asking Nutrimatic to match `{}`...".format(query),
-        "response_type": "in_channel",
+        "response_type": "ephemeral",
     })
 
 @method("anagram")
@@ -147,7 +184,7 @@ def handle_anagram(query, target):
     defer(run_service, target, wordsmith, query)
     return jsonify({
         "text": "Finding anagrams for `{}`...".format(query),
-        "response_type": "in_channel",
+        "response_type": "ephemeral",
     })
 
 @method("unphone")
@@ -155,7 +192,15 @@ def handle_unphone(query, target):
     defer(run_service, target, unphone, query)
     return jsonify({
         "text": "Finding phone matches for `{}`...".format(query),
-        "response_type": "in_channel",
+        "response_type": "ephemeral",
+    })
+
+@method("onelook")
+def handle_onelook(query, target):
+    defer(run_service, target, onelook, query)
+    return jsonify({
+        "text": "Finding OneLook matches for `{}`...".format(query),
+        "response_type": "ephemeral",
     })
 
 def add_basic(name, fn):
@@ -172,13 +217,14 @@ class Braille:
     @staticmethod
     def encode(text):
         s = Braille.lookup
-        return ''.join(chr(0x2800+s.index(t)) for t in text.upper() if t in s)
+        return ''.join(
+            chr(0x2800+s.index(t)) if t in s else '?' for t in text.upper())
 
     @staticmethod
     def decode(text):
         s = Braille.lookup
-        return ''.join(s[ord(t)-0x2800] for t in text.upper())
-
+        return ''.join(s[ord(t)-0x2800] if 0x2800 <= ord(t) < 0x2840 else '?'
+            for t in text)
 
 add_basic("morse", morse.encode)
 add_basic("unmorse", morse.decode)

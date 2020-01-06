@@ -8,6 +8,8 @@ from .service import Service, StructureChanged
 
 
 class OnelookService(Service):
+    name = 'Onelook/Datamuse'
+
     def ext_url(self, query):
         query = quote(query)
         return f"https://onelook.com/?w={query}&scwo=1"

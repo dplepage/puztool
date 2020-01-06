@@ -1,10 +1,11 @@
 import re
 from bs4 import BeautifulSoup
 
-from .service import Service, StructureChanged
+from .service import ScraperService, StructureChanged
 
 
-class WordsmithService(Service):
+class WordsmithService(ScraperService):
+    name = "Anagram"
     urlbase = "https://new.wordsmith.org/anagram/anagram.cgi?anagram={{{}}}&t=20"
     statre = re.compile(r'(?P<total>\d+) found. Displaying')
 

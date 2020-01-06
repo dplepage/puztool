@@ -2,14 +2,15 @@ import re
 from string import ascii_uppercase as uppers
 from bs4 import BeautifulSoup
 
-from .service import Service, QueryError, StructureChanged
+from .service import ScraperService, QueryError, StructureChanged
 
 def extract_from_table(table):
     for row in table.select('tr'):
         yield [col.text.strip() for col in row.select('td')]
 
 
-class QatService(Service):
+class QatService(ScraperService):
+    name = 'Qat'
     urlbase = "http://www.quinapalus.com/cgi-bin/qat?pat={}&ent=Search&dict=0"
     statre = re.compile('(?P<early>Search terminated early)? *Total solutions found: (?P<count>\d+) in (?P<time>.*?)s')
 
@@ -43,6 +44,7 @@ class PatMatch(QatService):
     string like QGQDLATAHL, for example, it will tell you that the only match
     know to qat is SUSTENANCE.
     '''
+    name = 'PatMatch'
     @staticmethod
     def expand_query(query):
         chars = set(query) & set(uppers)
