@@ -1,0 +1,17 @@
+[[source]]
+url = "https://pypi.python.org/simple"
+verify_ssl = true
+
+[packages]
+flask = "*"
+pandas = '*'
+requests = '*'
+funcy = '*'
+bs4 = '*'
+gunicorn = "*"
+attrs = "*"
+lxml = "*"
+python-datamuse = "*"
+
+[requires]
+python_version = "3.7"
