@@ -13,7 +13,7 @@ import multiprocessing as mp
 import requests
 from flask import Flask, request, jsonify
 from puztool.service import QueryError, StructureChanged
-from puztool.service import qat, nutr, wordsmith, unphone, onelook
+from puztool.service import qat, nutr, wordsmith, unphone, onelook, qatpat
 from puztool import morse, nato
 from puztool.phone import to_phone
 import funcy as fn
@@ -37,11 +37,12 @@ def run_service(service, query, limit=10):
         cstr = f'First {count}'
     else:
         cstr = f'First {count} of {result.total}'
+    text = f"{cstr} {service.name} results for `{query}` <{url}|(go to site)>."
     blocks = [{
         "type": "section",
         "text": {
             "type": "mrkdwn",
-            "text": f"{cstr} {service.name} results for `{query}` <{url}|(go to site)>."
+            "text": text
         },
         "block_id": "text1"
     }]
@@ -55,6 +56,7 @@ def run_service(service, query, limit=10):
         })
     return dict(
         blocks = blocks,
+        text = text,
         response_type= "in_channel",
     )
 
@@ -162,47 +164,22 @@ def method(name):
         return fn
     return wrapper
 
-@method("qat")
-def handle_qat(query, target):
-    defer(run_service, target, qat, query)
-    return jsonify({
-        "text": "Asking qat to match `{}`...".format(query),
-        "response_type": "ephemeral",
-    })
+def add_service(name, service, feedback):
+    @method(name)
+    def handle(query, target):
+        defer(run_service, target, service, query)
+        url = service.ext_url(query)
+        return jsonify(dict(
+            text=feedback.format(query=query, url=url),
+            resposne_type='ephemeral'))
 
-@method("nutr")
-@method("nutrimatic")
-def handle_nutr(query, target):
-    defer(run_service, target, nutr, query)
-    return jsonify({
-        "text": "Asking Nutrimatic to match `{}`...".format(query),
-        "response_type": "ephemeral",
-    })
-
-@method("anagram")
-@method("wordsmith")
-def handle_anagram(query, target):
-    defer(run_service, target, wordsmith, query)
-    return jsonify({
-        "text": "Finding anagrams for `{}`...".format(query),
-        "response_type": "ephemeral",
-    })
-
-@method("unphone")
-def handle_unphone(query, target):
-    defer(run_service, target, unphone, query)
-    return jsonify({
-        "text": "Finding phone matches for `{}`...".format(query),
-        "response_type": "ephemeral",
-    })
-
-@method("onelook")
-def handle_onelook(query, target):
-    defer(run_service, target, onelook, query)
-    return jsonify({
-        "text": "Finding OneLook matches for `{}`...".format(query),
-        "response_type": "ephemeral",
-    })
+add_service('qat', qat, 'Asking <{url}|qat> to match `{query}`')
+add_service('nutrimatic', nutr, 'Asking <{url}|Nutrimatic> to match `{query}`')
+add_service('onelook', nutr, 'Asking <{url}|OneLook> to match `{query}`')
+add_service('anagram', wordsmith, 'Finding <{url}|anagrams> for `{query}`')
+add_service('wordsmith', wordsmith, 'Finding <{url}|anagrams> for `{query}`')
+add_service('unphone', unphone, 'Finding <{url}|phone matches> for `{query}`')
+add_service('isomorph', qatpat, 'Finding <{url}|isomorphisms> for `{query}`')
 
 def add_basic(name, fn):
     @method(name)

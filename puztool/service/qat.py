@@ -44,9 +44,10 @@ class PatMatch(QatService):
     string like QGQDLATAHL, for example, it will tell you that the only match
     know to qat is SUSTENANCE.
     '''
-    name = 'PatMatch'
+    name = 'Isomorphism'
     @staticmethod
     def expand_query(query):
+        query = query.upper()
         chars = set(query) & set(uppers)
         for c in chars:
             query+=f';|{c}|=1'
@@ -56,9 +57,13 @@ class PatMatch(QatService):
     def mkurl(self, query):
         return super().mkurl(self.expand_query(query))
 
+    def parse_page(self, query, page):
+        entries, partial, total = super().parse_page(query, page)
+        entries = [x[0].replace("·", "") for x in entries]
+        return entries, partial, total
+
 qat = QatService()
 qatpat = PatMatch()
-
 
 if __name__ == '__main__':
     import sys

@@ -1,10 +1,7 @@
-import re
-import json
-from bs4 import BeautifulSoup
 from urllib.request import quote
 import datamuse
 
-from .service import Service, StructureChanged
+from .service import Service
 
 
 class OnelookService(Service):
