@@ -23,7 +23,7 @@ def read(fname, format=None):
         return read_png(fname)
     return np.array(Image.open(fname))
 
-def toimg(data, norm=False, zoom=1):
+def to(data, norm=False, zoom=1):
     if data.dtype == bool:
         img = (data*255).astype('uint8')
     else:
@@ -37,11 +37,11 @@ def toimg(data, norm=False, zoom=1):
             img = (data*255.0/data.max()).astype('uint8')
     im = Image.fromarray(img)
     if zoom != 1:
-        im = im.resize((int(im.width*zoom), int(im.height*zoom)))
+        im = im.resize((int(im.width*zoom), int(im.height*zoom)), Image.NEAREST)
     return im
 
 def show(data, norm=False):
-    return toimg(data, norm).show()
+    return to(data, norm).show()
 
 def subrect(data, mask=None, pad=0):
     '''Return a sub-rectangle of data containing everywhere mask is True.'''
