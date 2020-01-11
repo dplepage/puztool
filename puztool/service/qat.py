@@ -12,7 +12,7 @@ def extract_from_table(table):
 class QatService(ScraperService):
     name = 'Qat'
     urlbase = "http://www.quinapalus.com/cgi-bin/qat?pat={}&ent=Search&dict=0"
-    statre = re.compile('(?P<early>Search terminated early)? *Total solutions found: (?P<count>\d+) in (?P<time>.*?)s')
+    statre = re.compile(r'(?P<early>Search terminated early)? *Total solutions found: (?P<count>\d+) in (?P<time>.*?)s')
 
     def parse_page(self, query, page):
         page = BeautifulSoup(page, 'lxml')

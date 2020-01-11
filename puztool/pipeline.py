@@ -18,7 +18,7 @@ instead use the `source`, `modifier`, and `terminal` decorators:
 ...             yield (x, vowels)
 >>> @terminal
 ... def joinlines(seq):
-...     return '\n'.join(f'{a} {b}' for a,b in seq)
+...     return '\\n'.join(f'{a} {b}' for a,b in seq)
 >>> print(get_words() | alph() | joinlines())
 gemini eii
 jodhpurs ou
@@ -44,7 +44,9 @@ so you can pipe them to plain functions and get reasonable results:
 Pipelines can be combined without all their pieces to yield segments that can be
 mixed and matched:
 
->>> (lambda s:s[:3]) | alph | all()
+>>> x = (lambda s:s[:3]) | alph() | all()
+>>> ['food', 'bart'] | x
+[('foo', 'oo'), ('bar', 'a')]
 
 Finally, pipeline objects have shorthand for several common pipe segments:
 
@@ -79,16 +81,16 @@ def lift(fn):
 
     >>> def add_one(x): return x+1
     >>> def repeat(x): yield from [x, x, x]
-    >>> lift(add_one)([1, 2, 3])
+    >>> list(lift(add_one)([1, 2, 3]))
     [2, 3, 4]
-    >>> lift(repeat)([1, 2, 3])
+    >>> list(lift(repeat)([1, 2, 3]))
     [1, 1, 1, 2, 2, 2, 3, 3, 3]
 
     Note that only generators are flattened - if you return a simple iterable,
     it'll just be added as a single element:
 
     >>> def repeat_list(x): return [x, x, x]
-    >>> lift(repeat_list)([1, 2, 3])
+    >>> list(lift(repeat_list)([1, 2, 3]))
     [[1, 1, 1], [2, 2, 2], [3, 3, 3]]
     '''
     def newfn(seq):
@@ -125,7 +127,7 @@ class Pipeline:
     >>> p1 | p3
     [0, 1, 2, 3, 4]
     >>> p1 | p2 | p3
-    [0, 1, 2, 3, 4]
+    [1, 2, 3, 4, 5]
     >>> p1 | p2 | p2 | p3
     [2, 3, 4, 5, 6]
 

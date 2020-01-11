@@ -9,7 +9,7 @@ from .pipeline import P
 from .service import qat, nutr
 from . import pipes
 from . import gridsearch
-from . import logic_grid
+from . import logic
 
 here = Path(__file__).parent
 
@@ -35,5 +35,5 @@ __all__ = [
     'pipes',
     'P',
     'gridsearch',
-    'logic_grid',
+    'logic',
 ]

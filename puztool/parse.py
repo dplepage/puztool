@@ -22,7 +22,7 @@ def guess_splitter(lines):
         return r'\t+'
     elif all(',' in line for line in lines):
         return r', *'
-    elif all(re.search("\W", line) for line in lines):
+    elif all(re.search(r'\W', line) for line in lines):
         return r'\W+'
     return None
 
@@ -44,9 +44,9 @@ def parse_grid(data=None, sep=None, nostrip=False, comment='#', jagged=False):
         lines = [list(line) for line in lines]
     all_items = sum(lines, [])
     mode = str
-    if all(re.match('^\d+$', d) for d in all_items):
+    if all(re.match(r'^\d+$', d) for d in all_items):
         mode = int
-    elif all(re.match('^\d+\.?\d*$', d) for d in all_items):
+    elif all(re.match(r'^\d+\.?\d*$', d) for d in all_items):
         mode = float
     is_rect = all(len(line) == len(lines[0]) for line in lines)
     if is_rect:
@@ -64,7 +64,7 @@ def parse_lists(data=None, sep=None, nostrip=False, comment='#'):
     return parse_grid(data, sep, nostrip, comment, jagged=True)
 
 
-def parse_table(table=None, sep='\s+', header=None, conv=None, **kw):
+def parse_table(table=None, sep=r'\s+', header=None, conv=None, **kw):
     if table is None:
         table = clipboard_get()
     if isinstance(table, str):

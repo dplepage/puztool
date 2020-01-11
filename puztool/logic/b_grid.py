@@ -22,6 +22,7 @@ class _Conflict:
     def add(self, term:str):
         self.terms.append(term)
 
+
 class ValInfo(t.NamedTuple):
     '''Info about a single possible value in a logic grid.
 
@@ -41,8 +42,17 @@ class ValInfo(t.NamedTuple):
     def __str__(self) -> str:
         return self.fullname
 
+
 class AmbiguityError(KeyError):
-    pass
+    def __init__(self, value:str, conf:_Conflict):
+        if len(conf.terms) == 2:
+            a, b = conf.terms
+            super().__init__(f'{value} could be {a} or {b}')
+        else:
+            terms = ', '.join(str(t) for t in conf.terms)
+            super().__init__(f'{value} could be any of: {terms}')
+        self.value = value
+        self.conf = conf
 
 class CatMan:
     '''Manager for discrete categories.
@@ -55,12 +65,28 @@ class CatMan:
     way. For example:
 
     >>> c = CatMan(dict(
-    ... color=['red', 'green', 'blue'],
-    ... size=['small', 'medium', 'large']))
+    ...     color=['red', 'green', 'blue'],
+    ...     size=['small', 'medium', 'large']))
     >>> c['color:red']
     ValInfo(cat='color', val='red', idx=0)
     >>> c['red']
     ValInfo(cat='color', val='red', idx=0)
+
+    Different categories can have overlapping values; you'll get an
+    AmbiguityError if you try to use an ambiguous unqualified name:
+
+    >>> c = CatMan(dict(
+    ...    name = ['Alice', 'Violet'],
+    ...    color = ['Red', 'Violet']))
+    >>> c['color:Violet']
+    ValInfo(cat='color', val='Violet', idx=1)
+    >>> c['name:Violet']
+    ValInfo(cat='name', val='Violet', idx=1)
+    >>> c['Violet']
+    Traceback (most recent call last):
+        ...
+    puztool.logic.b_grid.AmbiguityError: 'Violet could be name:Violet or color:Violet'
+
     '''
     def __init__(self, cats):
         self.catmap = {}
@@ -109,9 +135,7 @@ class CatMan:
             if cat is not None:
                 value = '{}:{}'.format(cat, value)
                 return self.get_info(value)
-            msg = "{} could be any of: {}"
-            terms = ', '.join(str(t) for t in v.terms)
-            raise AmbiguityError(msg.format(value, terms))
+            raise AmbiguityError(value, v)
         return v
 
     def get_cat(self, value):
@@ -150,11 +174,11 @@ class Grid(CatMan):
 
     >>> from puztool.parse import parse_table
     >>> frame = parse_table("""
-    name      color   sign
-    Brita     Blue    Ares
-    Galal     Green   Scorpio
-    Parvaneh  Red     Virgo
-    """, header=0)
+    ... name      color   sign
+    ... Brita     Blue    Ares
+    ... Galal     Green   Scorpio
+    ... Parvaneh  Red     Virgo
+    ... """, header=0)
     >>> g = Grid(frame)
 
     Each value gets assigned a unique name of the form <category>:<value>. In

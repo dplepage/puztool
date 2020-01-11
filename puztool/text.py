@@ -34,14 +34,14 @@ def uncount(counter, sort_key=None, sep=''):
     'abfoor'
     >>> c.uncount(sort_key='freq')
     'ooabfr'
-    >> c.uncount(True, sep=' - ')
+    >>> c.uncount(True, sep=' - ')
     'a - b - f - oo - r'
     '''
     pairs = list(counter.items())
     if sort_key:
         pairs.sort(key = lambda p:p[0])
     if sort_key == 'freq':
-        pairs.sort(key=lambda p: p[1])
+        pairs.sort(key=lambda p: -p[1])
     elif sort_key in ['alph', True]:
         pass
     elif sort_key:
