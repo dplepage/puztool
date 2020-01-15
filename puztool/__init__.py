@@ -8,6 +8,7 @@ from .dropquote import DropQuote
 from .pipeline import P
 from .service import qat, nutr
 from . import pipes
+from . import codes as C
 from . import gridsearch
 from . import logic
 
@@ -34,6 +35,7 @@ __all__ = [
     'qat', 'nutr',
     'pipes',
     'P',
+    'C',
     'gridsearch',
     'logic',
 ]

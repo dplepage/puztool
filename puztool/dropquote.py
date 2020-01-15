@@ -14,7 +14,7 @@ class Segment:
         self.start = start
         self.end = end
         self.key = key
-        self.word = word
+        self._word = word
 
     @property
     def word(self):
@@ -63,6 +63,9 @@ class DropQuoteBank:
     def p(self):
         cols = self.columns
         x = np.empty((len(cols), max(len(c) for c in cols)), dtype=str)
+        if x.shape[1] == 0:
+            print("<bank empty>")
+            return
         x[:] = ' '
         for i,c in enumerate(self.columns):
             x[i, :len(c)] = sorted(c)
@@ -140,6 +143,10 @@ class DropQuote:
                 gstr[seg.start:seg.end] = key*len(seg)
         for i in range(0, len(gstr), self.width):
             print(''.join(gstr[i:i+self.width]))
+
+    def message(self):
+        words = [seg.word or key*len(seg) for key, seg in self.segs.items()]
+        return ' '.join(words)
 
     def get_seg(self, key):
         return self.segs[str(key)]

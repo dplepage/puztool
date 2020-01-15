@@ -11,6 +11,7 @@ def smoosh(data, join='', axis=-1):
         join = join.join
     return np.apply_along_axis(join, axis, data)
 
+
 def show(data):
     '''Represent a higher-dimensional text array in a more readable(?) way.
 
@@ -35,6 +36,7 @@ def _mmind(a,b):
         elif c in b:
             yield '○'
 
+
 def mmind(a,b):
     '''Mastermind implementation.
 
@@ -50,7 +52,5 @@ def mmind(a,b):
     Disclaimer: Wrong when there are duplicates:
     >>> mmind("ooo", "oof") # (should be just '●●')
     '●●○'
-
-
     '''
     return ''.join(_mmind(a,b))

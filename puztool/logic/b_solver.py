@@ -228,10 +228,8 @@ class Solver(Grid):
         '''
         for grid in self.all_grids:
             for i in range(self.num_items):
-                yield z3.AtMost(*grid[i, :], 1)
-                yield z3.AtLeast(*grid[i, :], 1)
-                yield z3.AtMost(*grid[:, i], 1)
-                yield z3.AtLeast(*grid[:, i], 1)
+                yield z3.PbEq([(g,1) for g in grid[i, :]], 1)
+                yield z3.PbEq([(g,1) for g in grid[:, i]], 1)
 
     @fn.collecting
     def cons_sanity(self):
