@@ -10,8 +10,9 @@ except ImportError:
 
 from ..text import lowers
 
+
 class _Conflict:
-    def __init__(self, *terms:t.Tuple[t.Union["_Conflict", str]]):
+    def __init__(self, *terms: t.Tuple[t.Union["_Conflict", str]]):
         self.terms = []
         for term in terms:
             if isinstance(term, _Conflict):
@@ -19,7 +20,7 @@ class _Conflict:
             else:
                 self.terms.append(term)
 
-    def add(self, term:str):
+    def add(self, term: str):
         self.terms.append(term)
 
 
@@ -44,7 +45,7 @@ class ValInfo(t.NamedTuple):
 
 
 class AmbiguityError(KeyError):
-    def __init__(self, value:str, conf:_Conflict):
+    def __init__(self, value: str, conf: _Conflict):
         if len(conf.terms) == 2:
             a, b = conf.terms
             super().__init__(f'{value} could be {a} or {b}')
@@ -53,6 +54,7 @@ class AmbiguityError(KeyError):
             super().__init__(f'{value} could be any of: {terms}')
         self.value = value
         self.conf = conf
+
 
 class CatMan:
     '''Manager for discrete categories.
@@ -167,8 +169,8 @@ class Grid(CatMan):
     category names and the values are the category values.
 
     The Grid then creates a bunch of numpy object arrays, such that
-    g.grids[key1][key2][x,y] indicates whether the row with value x for key1 has
-    value y for key2.
+    g.grids[key1][key2][x,y] indicates whether the row with value x for key1
+    has value y for key2.
 
     For example, suppose your data is three names, favorite colors, and signs:
 
@@ -182,18 +184,17 @@ class Grid(CatMan):
     >>> g = Grid(frame)
 
     Each value gets assigned a unique name of the form <category>:<value>. In
-    the above case, for example, 'name:Brita' refers to the value 'Brita' in the
-    name category. However, the helper functions will also infer the category if
-    the term is unambiguous - 'Brita' also refers to that value (but it would
-    not if 'Brita' was also a value in another category).
-
+    the above case, for example, 'name:Brita' refers to the value 'Brita' in
+    the name category. However, the helper functions will also infer the
+    category if the term is unambiguous - 'Brita' also refers to that value
+    (but it would not if 'Brita' was also a value in another category).
     '''
     def __init__(self, categories):
         super().__init__(categories)
-        self.pairs = list(combos(self.categories, 2)) # this comes up a lot
-        self.grids = {n:{} for n in self.categories}
+        self.pairs = list(combos(self.categories, 2))  # this comes up a lot
+        self.grids = {n: {} for n in self.categories}
         for f1, f2 in self.pairs:
-            g = np.empty((self.num_items,self.num_items), dtype='object')
+            g = np.empty((self.num_items, self.num_items), dtype='object')
             # Both entries point to different views of the same matrix
             self.grids[f1][f2] = g
             self.grids[f2][f1] = g.T
@@ -247,13 +248,13 @@ class Grid(CatMan):
         # Map each category to a letter and return the list of entries matching
         # val in the form e.g. a3b5
         letters = dict(zip(self.categories, lowers))
-        for f1,f2 in self.pairs:
+        for f1, f2 in self.pairs:
             a = letters[f1]
             b = letters[f2]
             for i in range(self.num_items):
                 for j in range(self.num_items):
-                    if self.grids[f1][f2][i,j] == val:
-                        yield '{}{}{}{}'.format(a,i,b,j)
+                    if self.grids[f1][f2][i, j] == val:
+                        yield '{}{}{}{}'.format(a, i, b, j)
 
     def _encl(self, items):
         return '!({})'.format(','.join(str(e) for e in items))
@@ -271,7 +272,7 @@ class Grid(CatMan):
         d['items'] = encl(items)
         d['n'] = encl(self._get_encoded_grid(False))
         d['p'] = encl(self._get_encoded_grid(True))
-        return ','.join('{}:{}'.format(k,v) for (k,v) in d.items())
+        return ','.join('{}:{}'.format(k, v) for (k, v) in d.items())
 
     def get_link(self):
         '''Get a link that will display this grid on jsingler.de'''
@@ -280,7 +281,7 @@ class Grid(CatMan):
 
     def html_link(self):
         '''get_link, but returns an HTML object that will display in ipython.'''
-        l = self.get_link()
+        link = self.get_link()
         if HTML is None:
-            return l
-        return HTML("<a href='{0}'>{0}</a>".format(l))
+            return link
+        return HTML("<a href='{0}'>{0}</a>".format(link))
