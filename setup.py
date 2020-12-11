@@ -19,5 +19,8 @@ setuptools.setup(
         'beautifulsoup4',
         'funcy',
         'flask',
+        'imageio',
+        'imageio-ffmpeg',
+        'z3',
     ]
 )
