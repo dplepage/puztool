@@ -7,3 +7,6 @@ __pycache__
 *.egg_info
 puztool/data/wordlists/*.txt
 !puztool/data/wordlists/ospd.txt
+*.egg-info/
+.coverage
+htmlcov/
