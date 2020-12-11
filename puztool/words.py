@@ -14,11 +14,29 @@ data_path = os.environ.get("PUZTOOL_DATA_DIR", "data/wordlists")
 
 default_data_dir = here/data_path
 
-def make_tree(wordlist):
+def make_tree(wordlist, reversed=False):
+    '''Build a prefix tree from a wordlist.
+
+    The returned structure is a dict mapping characters to subdicts; a dict will
+    have the key '' if it is a word. For example:
+
+    >>> make_tree(['bat', 'bath', 'bats', 'baths']) == {
+    ... 'b': {
+    ...     'a': {
+    ...         't': {
+    ...             '': 'bat',
+    ...         'h': {
+    ...             '': 'bath',
+    ...             's': {
+    ...                 '': 'baths'}},
+    ...             's': {
+    ...                 '': 'bats'}}}}}
+    True
+    '''
     tree = dict()
     for word in wordlist:
         top = tree
-        for char in word:
+        for char in word[::-1] if reversed else word:
             top = top.setdefault(char, {})
         top[''] = word
     return tree
@@ -31,22 +49,23 @@ def find_words(tree):
             yield from find_words(v)
 
 class WordTree(object):
-    def __init__(self, list=None, tree=None):
+    def __init__(self, list=None, tree=None, reversed=False):
         if tree is None:
-            tree = make_tree(list)
+            tree = make_tree(list, reversed)
+        self.reversed = reversed
         self.tree = tree
 
     def __getitem__(self, word):
         top = self.tree
-        for c in word:
+        for c in word[::-1] if self.reversed else word:
             if c not in top:
-                return WordTree(tree={})
+                return WordTree(tree={}, reversed=self.reversed)
             top = top[c]
-        return WordTree(tree=top)
+        return WordTree(tree=top, reversed=self.reversed)
 
     def __contains__(self, word):
         top = self.tree
-        for c in word:
+        for c in word[::-1] if self.reversed else word:
             if c not in top:
                 return False
             top = top[c]
@@ -56,7 +75,7 @@ class WordTree(object):
 
     def has(self, prefix):
         top = self.tree
-        for c in prefix:
+        for c in prefix[::-1] if self.reversed else prefix:
             if c not in top:
                 return False
             top = top[c]
@@ -80,7 +99,7 @@ class WordTree(object):
         head, *rest = sets
         for letter in head:
             if self.has(letter):
-                yield from self.search(rest)
+                yield from self[letter].search(rest)
 
 # Lazy loading wordlists and trees
 class WordList(Modifier):
@@ -109,8 +128,13 @@ class WordList(Modifier):
 
     @property
     @lru_cache()
-    def tree(self):
+    def prefix_tree(self):
         return WordTree(self.list)
+
+    @property
+    @lru_cache()
+    def suffix_tree(self):
+        return WordTree(self.list, reversed=True)
 
     def search(self, sets):
         for chars in product(*sets):
