@@ -51,6 +51,7 @@ def deletions(result):
 @item_mod
 def additions(result):
     '''Return all strings generated from the input by adding one letter.'''
+    result = Result.ensure(result)
     s = result.val
     for i in range(len(s)+1):
         for c in lowers:

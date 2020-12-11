@@ -43,6 +43,12 @@ class Result(t.Generic[T]):
         provenance = tuple(ensure(p) for p in provenance)
         return cls(value, provenance)
 
+    @classmethod
+    def ensure(cls, value:t.Union[T, "Result[T]"]) -> "Result[T]":
+        if isinstance(value, Result):
+            return value
+        return Result(value)
+
     def extend(self, new_val: t.Any, *new_provenance: t.Iterable[ProvEntry]) -> "Result[T]":
         if not new_provenance:
             new_provenance = (FromValue(self.val),)
