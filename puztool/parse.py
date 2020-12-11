@@ -34,13 +34,15 @@ def parse_grid(data=None, sep=None, nostrip=False, comment='#', jagged=False):
         data = dedent(data.rstrip()).strip()
     lines = data.splitlines()
     if comment:
-        lines = [re.sub(comment+'.*$', '', line).strip() for line in lines]
-        lines = [line for line in lines if line]
+        lines = [re.sub(comment+'.*$', '', line) for line in lines]
+    lines = [line for line in lines if line]
     if sep is None:
         sep = guess_splitter(lines)
     if sep is not None and sep != '':
+        print(f"Separating by {sep!r}")
         lines = [re.split(sep, line) for line in lines]
     else:
+        print(f"Separating by character")
         lines = [list(line) for line in lines]
     all_items = sum(lines, [])
     mode = str
@@ -52,11 +54,16 @@ def parse_grid(data=None, sep=None, nostrip=False, comment='#', jagged=False):
     if is_rect:
         jagged = False
     if jagged:
+        print("Returning jagged array")
         return np.array([
             np.array([mode(val) for val in line]) for line in lines])
     data = np.array([mode(val) for val in all_items])
     if is_rect:
         data = data.reshape(len(lines), -1)
+        h, w = data.shape
+        print(f"Array is rectangular ({h}x{w})")
+    else:
+        print("Array is not rectangular")
     return data
 
 
