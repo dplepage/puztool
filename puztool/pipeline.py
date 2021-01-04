@@ -1,8 +1,8 @@
 '''
 A collection of tools for pipelining operations on iterables
 
-The main type is Pipeline, which represents a flow of data from a source through
-any number of modifiers to a terminal.
+The main type is Pipeline, which represents a flow of data from a source
+through any number of modifiers to a terminal.
 
 In practice, you usually do not need to create pipelines yourself, but can
 instead use the `source`, `modifier`, and `terminal` decorators:
@@ -42,8 +42,8 @@ so you can pipe them to plain functions and get reasonable results:
 ['gem', 'jod', 'bal', 'fac']
 
 
-Pipelines can be combined without all their pieces to yield segments that can be
-mixed and matched:
+Pipelines can be combined without all their pieces to yield segments that can
+be mixed and matched:
 
 >>> x = (lambda s:s[:3]) | alph() | P.all()
 >>> ['food', 'bart'] | x
@@ -67,9 +67,9 @@ def lift(fn):
     anything to you.
 
     The input should be a function that takes a single argument and either
-    returns a single argument or returns a generator; the returned function will
-    take a sequence and will yield all results of calling the original function
-    on each element of that sequence.
+    returns a single argument or returns a generator; the returned function
+    will take a sequence and will yield all results of calling the original
+    function on each element of that sequence.
 
     For example:
 
@@ -102,9 +102,9 @@ class Pipeline:
     '''A Pipeline represents a flow of data from a source to a terminus.
 
     A complete pipeline has a source, which is a callable that returns an
-    iterable, a series of modifiers, each of which takes an iterable and returns
-    a new iterable, and a terminus, which takes an iterable and returns some
-    other value.
+    iterable, a series of modifiers, each of which takes an iterable and
+    returns a new iterable, and a terminus, which takes an iterable and returns
+    some other value.
 
     Executing a pipeline of (src, (mod1, mod2), term) therefore simply means
     returning term(mod2(mod1(src()))).
@@ -158,7 +158,8 @@ class Pipeline:
 
     '''
     _src: t.Callable[[], t.Iterable] = attr.ib(default=None)
-    _mods: t.Tuple[t.Callable[[t.Iterable], t.Iterable], ...] = attr.ib(factory=tuple)
+    _mods: t.Tuple[t.Callable[[t.Iterable],
+                              t.Iterable], ...] = attr.ib(factory=tuple)
     _term: t.Callable[[t.Iterable], t.Any] = attr.ib(default=None)
 
     def set_src(self, src):
@@ -175,12 +176,12 @@ class Pipeline:
         return attr.evolve(self, _mods=(mod,) + self._mods)
 
     def mod_right(self, mod):
-        return attr.evolve(self, _mods=self._mods+(mod,))
+        return attr.evolve(self, _mods=self._mods + (mod,))
 
     @classmethod
     def from_src(cls, src):
         if not callable(src):
-            return cls(src=lambda:src)
+            return cls(src=lambda: src)
         return cls(src=src)
 
     @classmethod
@@ -191,11 +192,11 @@ class Pipeline:
 
     @classmethod
     def from_mod(cls, mod):
-        return cls(mods = (mod,))
+        return cls(mods=(mod,))
 
     @classmethod
     def from_item_mod(cls, mod):
-        return cls(mods = (lift(mod),))
+        return cls(mods=(lift(mod),))
 
     @classmethod
     def from_term(cls, term):
@@ -225,7 +226,8 @@ class Pipeline:
             yield from self | as_iter()
 
     def __str__(self):
-        return " -> ".join(str(s) for s in (self._src,)+self._mods+(self._term,))
+        steps = (self._src,) + self._mods + (self._term,)
+        return " -> ".join(str(s) for s in steps)
 
     @property
     def complete(self) -> bool:
@@ -239,7 +241,7 @@ class Pipeline:
             return other._as_pipeline()
         if isinstance(other, t.Callable):
             return Pipeline.from_item_mod(other)
-        return Pipeline(src=lambda:other)
+        return Pipeline(src=lambda: other)
 
     def pipe_to(self, other):
         other = Pipeline.as_pipeline(other)
@@ -247,7 +249,9 @@ class Pipeline:
             raise ValueError("Can't pipe to src")
         if self._term:
             raise ValueError("Can't pipe out of term")
-        return Pipeline(src=self._src, mods=self._mods+other._mods, term=other._term)
+        return Pipeline(src=self._src,
+                        mods=self._mods + other._mods,
+                        term=other._term)
 
     def pipe_from(self, other):
         return Pipeline.as_pipeline(other).pipe_to(self)
@@ -291,7 +295,6 @@ def modifier(fn):
 def item_mod(fn):
     return lambda *a, **kw: \
         Pipeline.from_item_mod(lambda item: fn(item, *a, **kw))
-
 
 
 class Pipeable(abc.ABC):
@@ -347,9 +350,12 @@ def as_list(seq):
 def as_df(seq, unpack=None, columns=None):
     '''Unpack a sequence into a pandas DataFrame.
 
-    The type of the first tiem '''
+    The type of the first item will be used to determine how to unpack items;
+    by default, Result objects are unpacked with their provenances going into
+    columns.
+    '''
     try:
-        fst = fy.next(seq)
+        fst = next(iter(seq))
     except StopIteration:
         return pd.DataFrame()
     if unpack is None:
@@ -392,6 +398,7 @@ def as_join(join: t.Union[str, t.Callable]) -> t.Callable:
         return join.join
     return join
 
+
 class PipelineHelper(Pipeline):
     '''Helper class for a bunch of common pipeline filters and terminals.
 
@@ -431,7 +438,7 @@ class PipelineHelper(Pipeline):
 
     @staticmethod
     def exclude(*args):
-        return PipelineHelper.filter(lambda x: x not in args)
+        return PipelineHelper.filter(lambda x: val(x) not in args)
 
     @staticmod
     def chunks(n, join=None, *, seq):
