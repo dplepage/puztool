@@ -24,47 +24,41 @@ gemini eii
 jodhpurs ou
 facetiously aeiouy
 
-This module provides several useful terminals:
+# This module provides several useful terminals and modifiers on the helper
+# object P:
 
->>> get_words() | all()
+>>> get_words() | P.all()
 ['gemini', 'jodhpurs', 'balderdash', 'facetiously']
->>> get_words() | first()
+>>> get_words() | P.first()
 'gemini'
->>> get_words() | limit(2) | all()
+>>> get_words() | P.limit(2).all()
 ['gemini', 'jodhpurs']
 
 
 Pipeline objects will also automatically interpret functions as item modifiers,
 so you can pipe them to plain functions and get reasonable results:
 
->>> get_words() | (lambda s:s[:3]) | all()
+>>> get_words() | (lambda s:s[:3]) | P.all()
 ['gem', 'jod', 'bal', 'fac']
 
 
 Pipelines can be combined without all their pieces to yield segments that can be
 mixed and matched:
 
->>> x = (lambda s:s[:3]) | alph() | all()
+>>> x = (lambda s:s[:3]) | alph() | P.all()
 >>> ['food', 'bart'] | x
 [('foo', 'oo'), ('bar', 'a')]
-
-Finally, pipeline objects have shorthand for several common pipe segments:
-
->>> get_words().all()
-['gemini', 'jodhpurs', 'balderdash', 'facetiously']
-
->>> (get_words() | (lambda s:''.join(s[::-1]))).first()
-'inimeg'
-
 '''
 
 import abc
 import typing as t
-import attr
 import itertools
+import attr
+import funcy as fy
 import pandas as pd
 
 from .result import Result, val
+
 
 def lift(fn):
     '''Converts a function from item->item or item->seq to seq->seq
@@ -167,18 +161,6 @@ class Pipeline:
     _mods: t.Tuple[t.Callable[[t.Iterable], t.Iterable], ...] = attr.ib(factory=tuple)
     _term: t.Callable[[t.Iterable], t.Any] = attr.ib(default=None)
 
-    def all(self) -> "Pipeline":
-        return self | all()
-
-    def limit(self, n:int) -> "Pipeline":
-        return self | limit(n)
-
-    def first(self) -> "Pipeline":
-        return self | first()
-
-    def df(self) -> pd.DataFrame:
-        return self | df()
-
     def set_src(self, src):
         if self._src is not None:
             raise ValueError("Cannot double-source Pipeline")
@@ -237,7 +219,10 @@ class Pipeline:
         return seq
 
     def __iter__(self):
-        yield from self.all()
+        if self._term:
+            return self.execute()
+        else:
+            yield from self | as_iter()
 
     def __str__(self):
         return " -> ".join(str(s) for s in (self._src,)+self._mods+(self._term,))
@@ -279,46 +264,35 @@ class Pipeline:
             return result.execute()
         return result
 
+    def all(self) -> "Pipeline":
+        return self | as_list()
+
+    def df(self, unpack=None, columns=None) -> pd.DataFrame:
+        return self | as_df(unpack=unpack, columns=columns)
+
+
 def source(fn_or_iterable):
     if callable(fn_or_iterable):
-        return lambda *a, **kw: Pipeline.from_src(lambda:fn_or_iterable(*a, **kw))
-    return Pipeline.from_src(lambda:fn_or_iterable)
+        return lambda *a, **kw: \
+            Pipeline.from_src(lambda: fn_or_iterable(*a, **kw))
+    return Pipeline.from_src(lambda: fn_or_iterable)
+
 
 def terminal(fn):
-    return lambda *a, **kw: Pipeline.from_term(lambda seq:fn(*a, **kw, seq=seq))
+    return lambda *a, **kw: \
+        Pipeline.from_term(lambda seq: fn(*a, **kw, seq=seq))
+
 
 def modifier(fn):
-    return lambda *a, **kw: Pipeline.from_mod(lambda seq:fn(*a, **kw, seq=seq))
+    return lambda *a, **kw: \
+        Pipeline.from_mod(lambda seq: fn(*a, **kw, seq=seq))
+
 
 def item_mod(fn):
-    return lambda *a, **kw: Pipeline.from_item_mod(lambda item: fn(item, *a, **kw))
+    return lambda *a, **kw: \
+        Pipeline.from_item_mod(lambda item: fn(item, *a, **kw))
 
-@terminal
-def all(seq):
-    return list(seq)
 
-@terminal
-def first(seq):
-    return next(iter(seq))
-
-@modifier
-def limit(n, seq):
-    for i, v in enumerate(seq):
-        if i >= n:
-            break
-        yield v
-
-@terminal
-def df(seq, unpack=None):
-    if unpack is None:
-        first = next(seq)
-        if isinstance(first, Result):
-            unpack = True
-        seq = itertools.chain([first], seq)
-    if unpack:
-        return pd.DataFrame(((item.val,) + item.provenance) for item in seq)
-    else:
-        return pd.DataFrame(item for item in seq)
 
 class Pipeable(abc.ABC):
     def _as_pipeline(self) -> "Pipeline":
@@ -330,6 +304,7 @@ class Pipeable(abc.ABC):
     def __ror__(self, other):
         return other | self._as_pipeline()
 
+
 class Source(Pipeable):
     '''Abstract base class to make anything a Source'''
     @abc.abstractmethod
@@ -339,6 +314,7 @@ class Source(Pipeable):
     def _as_pipeline(self) -> "Pipeline":
         return Pipeline.from_src(self._generate)
 
+
 class Terminus(Pipeable):
     @abc.abstractmethod
     def _consume(self, seq: t.Iterable):
@@ -347,12 +323,137 @@ class Terminus(Pipeable):
     def _as_pipeline(self) -> "Pipeline":
         return Pipeline.from_term(self._consume)
 
+
 class Modifier(Pipeable):
     @abc.abstractmethod
-    def _process(self, seq: t.Iterable)->t.Iterable:
+    def _process(self, seq: t.Iterable) -> t.Iterable:
         raise NotImplementedError()
 
     def _as_pipeline(self) -> "Pipeline":
         return Pipeline.from_mod(self._process)
 
-P = Pipeline()
+
+@terminal
+def as_iter(seq):
+    return iter(seq)
+
+
+@terminal
+def as_list(seq):
+    return list(seq)
+
+
+@terminal
+def as_df(seq, unpack=None, columns=None):
+    '''Unpack a sequence into a pandas DataFrame.
+
+    The type of the first tiem '''
+    try:
+        fst = fy.next(seq)
+    except StopIteration:
+        return pd.DataFrame()
+    if unpack is None:
+        if isinstance(fst, Result):
+            unpack = True
+    if unpack is True and columns is None:
+        columns = ['value'] + [f'prov{i}' for i in range(len(fst.provenance))]
+    seq = itertools.chain([fst], seq)
+    if unpack:
+        if isinstance(fst, (list, tuple)):
+            items = ((tuple(item.val) + item.provenance) for item in seq)
+        else:
+            items = (((item.val,) + item.provenance) for item in seq)
+    else:
+        items = iter(seq)
+    return pd.DataFrame(items, columns=columns)
+
+
+def staticmod(fn):
+    return staticmethod(modifier(fn))
+
+
+def as_join(join: t.Union[str, t.Callable]) -> t.Callable:
+    '''Make a join function from a string or function.
+
+    This is a convenience for functions that take a 'join' function. If the
+    input is a function, it's passed through unchanged:
+
+    >>> j1 = as_join(lambda *a: sum((list(x) for x in a), []))
+    >>> j1('abc')
+    ['a', 'b', 'c']
+
+    If instead it's a string, the return value is that string's .join():
+
+    >>> j2 = as_join(' ')
+    >>> j2('abc')
+    'a b c'
+    '''
+    if isinstance(join, str):
+        return join.join
+    return join
+
+class PipelineHelper(Pipeline):
+    '''Helper class for a bunch of common pipeline filters and terminals.
+
+    >>> P = PipelineHelper()
+    >>> range(3) |  P.first()
+    0
+    >>> range(3) | P.all()
+    [0, 1, 2]
+    >>> ['a', 'b', 'c'] | P.join()
+    'abc'
+    >>> range(3) | P.limit(2).all()
+    [0, 1]
+    >>> range(5) | P.filter(lambda x:x%2).all()
+    [1, 3]
+    >>> range(5) | P.exclude(1, 2).all()
+    [0, 3, 4]
+    '''
+    @staticmethod
+    @terminal
+    def first(seq):
+        return fy.first(seq)
+
+    @staticmethod
+    @terminal
+    def join(join='', *, seq):
+        return as_join(join)(seq)
+
+    @staticmod
+    def limit(n, seq):
+        for i, v in enumerate(seq):
+            if i >= n:
+                break
+            yield v
+
+    filter = staticmod(fy.filter)
+    flatten = staticmod(fy.flatten)
+
+    @staticmethod
+    def exclude(*args):
+        return PipelineHelper.filter(lambda x: x not in args)
+
+    @staticmod
+    def chunks(n, join=None, *, seq):
+        if join is None:
+            yield from fy.chunks(n, seq)
+        else:
+            if isinstance(join, str):
+                join = join.join
+            for item in fy.chunks(n, seq):
+                yield join(item)
+
+    @staticmod
+    def split(sep=' ', *, seq):
+        for item in seq:
+            r = Result.ensure(item)
+            for i, piece in enumerate(val(r).split(sep)):
+                yield r.extend(piece, (val(r), i))
+
+    @staticmod
+    def parallel(*mods, seq):
+        iters = itertools.tee(seq, len(mods))
+        yield from fy.interleave(*[(i | m) for (m, i) in zip(mods, iters)])
+
+
+P = PipelineHelper()

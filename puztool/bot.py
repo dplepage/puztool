@@ -14,7 +14,7 @@ import requests
 from flask import Flask, request, jsonify
 from puztool.service import QueryError, StructureChanged
 from puztool.service import qat, nutr, wordsmith, unphone, onelook, qatpat
-from puztool import morse, nato
+from puztool.codes import morse, nato
 from puztool.phone import to_phone
 import funcy as fn
 
