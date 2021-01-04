@@ -10,6 +10,7 @@ from .pipeline import source
 def Fail(*a, **kw):
     raise NotImplementedError()
 
+
 class Rotator:
     def __init__(self, vflip_char=None, hflip_char=None, cw_char=None):
         self.vflip_char = np.vectorize(vflip_char) if vflip_char else Fail
@@ -94,20 +95,28 @@ def fall(mat, row, d='l', empty=''):
     target[row, :] = items + [empty] * (w - len(items))
 
 
-
-def subrect(data, mask=None, pad=0):
+def subrect(data, mask=None, pad=0, dirs='udlr'):
     '''Return a sub-rectangle of data containing everywhere mask is True.
 
     If mask is None, data will be used, but must then be 2D.
     If pad is True
     '''
+    nrows, ncols, *_ = data.shape
     if mask is None:
         mask = data
     rows, cols, *rest = np.where(mask)
     if rest:
         raise ValueError("Mask must be 2D")
-    rm, rM = max(rows.min()-pad, 0), rows.max()+pad+1
-    cm, cM = max(cols.min()-pad, 0), cols.max()+pad+1
+    rm, rM = max(rows.min() - pad, 0), rows.max() + pad + 1
+    cm, cM = max(cols.min() - pad, 0), cols.max() + pad + 1
+    if 'u' not in dirs:
+        rm = 0
+    if 'd' not in dirs:
+        rM = nrows
+    if 'l' not in dirs:
+        cm = 0
+    if 'r' not in dirs:
+        cM = ncols
     return data[rm:rM, cm:cM]
 
 
@@ -123,35 +132,43 @@ class FromGrid(ProvEntry):
     def __iter__(self):
         yield from (self.start, self.end)
 
+    def __getitem__(self, i):
+        return self.indices()[i]
+
     @fn.collecting
     def indices(self):
         s = np.array(self.start)
         e = np.array(self.end)
-        d = abs(e-s).max()
-        delta = (e-s)//d
-        for i in range(d+1):
-            yield tuple(s+i*delta)
+        d = abs(e - s).max()
+        delta = (e - s) // d
+        for i in range(d + 1):
+            yield tuple(s + i * delta)
+
+    def idx(self):
+        return np.array(self.indices()).T.tolist()
 
 
 class _DIRS:
-    l = left = w = west = np.array([0,-1])
+    l = left = w = west = np.array([0, -1])
     r = right = e = east = np.array([0, 1])
     u = up = n = north = np.array([-1, 0])
     d = down = s = south = np.array([1, 0])
-    ul = upleft = nw = northwest = u+l
-    ur = upright = ne = northeast = u+r
-    dl = downleft = sw = southwest = d+l
-    dr = downright = se = southeast = d+r
+    ul = upleft = nw = northwest = u + l
+    ur = upright = ne = northeast = u + r
+    dl = downleft = sw = southwest = d + l
+    dr = downright = se = southeast = d + r
     h = hor = horizontals = (l, r)
     v = ver = verticals = (u, d)
     di = diagonals = (ul, ur, dl, dr)
-    o = ortho = h+v
+    o = ortho = h + v
     a = all = ortho + diagonals
 
     def __getitem__(self, key):
         return getattr(self, key)
 
+
 directions = DIRS = _DIRS()
+
 
 def parse_dirs(dirs):
     '''
@@ -164,8 +181,12 @@ def parse_dirs(dirs):
 
     >>> parse_dirs("r, u")
     [array([0, 1]), array([-1,  0])]
-    >>> parse_dirs(["diagonals", np.array([3,3])])
-    [(array([-1, -1]), array([-1,  1]), array([ 1, -1]), array([1, 1])), array([3, 3])]
+    >>> np.array(parse_dirs(["diagonals", np.array([3,3])]))
+    array([[-1, -1],
+           [-1,  1],
+           [ 1, -1],
+           [ 1,  1],
+           [ 3,  3]])
     '''
     if isinstance(dirs, str):
         dirs = [d.strip() for d in dirs.split(",")]
@@ -175,14 +196,15 @@ def parse_dirs(dirs):
             choice = directions[d.lower()]
         else:
             choice = d
-        if isinstance(choice, list):
+        if isinstance(choice, (list, tuple)):
             chosen.extend(choice)
         else:
             chosen.append(choice)
     return chosen
 
+
 @source
-def iter_seqs(grid, len=(3,None), dirs=directions.all, wrap=False):
+def iter_seqs(grid, len=(3, None), dirs=directions.all, wrap=False):
     '''Emit all sequences of letters in grid.
 
     dirs can be a list of tuples, or a comma-separated list of letters
@@ -193,8 +215,8 @@ def iter_seqs(grid, len=(3,None), dirs=directions.all, wrap=False):
 
     dirs defaults ot 'a', meaning all orthogonal and diagonal directions.
 
-    If len is a number, only sequences of that length will be returned. If it is
-    a tuple of (min, max), only sequences with lengths in [min, max] will be
+    If len is a number, only sequences of that length will be returned. If it
+    is a tuple of (min, max), only sequences with lengths in [min, max] will be
     returned. If len is None, or if len is a tuple and min or max is None, that
     bound will be ignored, e.g. len=(3,None) returns all sequences of 3 or more
     cells.
@@ -217,35 +239,37 @@ def iter_seqs(grid, len=(3,None), dirs=directions.all, wrap=False):
     if min_len is None:
         min_len = 3
     if max_len is None:
-        max_len = max(w,h)
+        max_len = max(w, h)
 
     for row, col in np.ndindex(h, w):
         start = np.array([[row], [col]])
         for d in dirs:
             # shaping it to (2,1) means we can do d*arange(i) to get a 2xi
             # array of indices
-            d = np.array(d).reshape(2,1)
-            for i in range(min_len, max_len+1):
-                points = start + d*np.arange(i)
+            d = np.array(d).reshape(2, 1)
+            for i in range(min_len, max_len + 1):
+                points = start + d * np.arange(i)
                 if wrap:
-                    points[0] = points[0]%h
-                    points[1] = points[1]%w
+                    points[0] = points[0] % h
+                    points[1] = points[1] % w
                 else:
                     # bounds check - stop if we've gone off the end
-                    if (points[0].clip(0,h-1) != points[0]).any():
+                    if (points[0].clip(0, h - 1) != points[0]).any():
                         break
-                    if (points[1].clip(0,w-1) != points[1]).any():
+                    if (points[1].clip(0, w - 1) != points[1]).any():
                         break
                 dr, dc = d.flat
                 items = list(grid[tuple(points)])
                 prov = (FromGrid(
-                    start = (row, col),
-                    end = (row+(i-1)*dr, col+(i-1)*dc)),)
+                    start=(row, col),
+                    end=(row + (i - 1) * dr, col + (i - 1) * dc)),)
                 yield Result(items, prov)
+
 
 def _join_val(item):
     return attr.evolve(item, val=''.join(item.val))
 
-def iter_strings(grid, size=(3,None), dirs=directions.all, wrap=False):
+
+def iter_strings(grid, len=(3, None), dirs=directions.all, wrap=False):
     '''iter_seqs but ''.join()'s the resulting values'''
-    return iter_seqs(grid, size, dirs, wrap) | _join_val
+    return iter_seqs(grid, len, dirs, wrap) | _join_val

@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from .parse import parse_grid, parse_lists, parse_table, pg, pt, pl
+from .parse import parse_grid, parse_table, pg, pt
 from .words import lists
 from .text import shift, unshift, normalize, lowers
 from .misc import smoosh, show
@@ -14,16 +14,16 @@ from . import logic
 
 here = Path(__file__).parent
 
+
 def edit():
     os.system(f"subl {here}")
 
+
 __all__ = [
     'parse_grid',
-    'parse_lists',
     'parse_table',
     'pg',
     'pt',
-    'pl',
     'lists',
     'shift',
     'unshift',
