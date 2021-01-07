@@ -87,9 +87,9 @@ class CatMan:
     >>> c['Violet']
     Traceback (most recent call last):
         ...
-    puztool.logic.b_grid.AmbiguityError: 'Violet could be name:Violet or color:Violet'
-
+    puztool...AmbiguityError: 'Violet could be name:Violet or color:Violet'
     '''
+
     def __init__(self, cats):
         self.catmap = {}
         self.lookup = {}
@@ -158,7 +158,7 @@ class CatMan:
         return self.catmap[key]
 
 
-class Grid(CatMan):
+class CatGrid(CatMan):
     '''A logic grid.
 
     The input is a dictionary of categories where each key is a category name
@@ -168,7 +168,7 @@ class Grid(CatMan):
     The input can also be a pandas DataFrame where the column names are the
     category names and the values are the category values.
 
-    The Grid then creates a bunch of numpy object arrays, such that
+    The CatGrid then creates a bunch of numpy object arrays, such that
     g.grids[key1][key2][x,y] indicates whether the row with value x for key1
     has value y for key2.
 
@@ -181,7 +181,7 @@ class Grid(CatMan):
     ... Galal     Green   Scorpio
     ... Parvaneh  Red     Virgo
     ... """, header=0)
-    >>> g = Grid(frame)
+    >>> g = CatGrid(frame)
 
     Each value gets assigned a unique name of the form <category>:<value>. In
     the above case, for example, 'name:Brita' refers to the value 'Brita' in
@@ -189,6 +189,7 @@ class Grid(CatMan):
     category if the term is unambiguous - 'Brita' also refers to that value
     (but it would not if 'Brita' was also a value in another category).
     '''
+
     def __init__(self, categories):
         super().__init__(categories)
         self.pairs = list(combos(self.categories, 2))  # this comes up a lot
@@ -221,20 +222,22 @@ class Grid(CatMan):
         infos = map(self.get_info, vals)
         for i1, i2 in combos(infos, 2):
             if i1.cat == i2.cat:
-                raise ValueError("Cannot require both {} and {}".format(i1, i2))
+                msg = "Cannot require both {} and {}".format(i1, i2)
+                raise ValueError(msg)
             self.grids[i1.cat][i2.cat][i1.idx, i2.idx] = True
 
     def requireOne(self, first, options):
         '''Indicate that one of options must go with first.
 
-        All values in options should be from the same category, and first should
-        be from a different one.
+        All values in options should be from the same category, and first
+        should be from a different one.
         '''
         i1 = self.get_info(first)
         options = [self.get_info(opt) for opt in options]
         categories = set(opt.cat for opt in options)
         if len(set(categories)) > 1:
-            raise ValueError("requireOne options must be in a single category.")
+            raise ValueError(
+                "requireOne options must be in a single category.")
         cat = list(categories)[0]
         g = self.grids[i1.cat][cat]
         old = list(g[i1.idx, :])
@@ -242,8 +245,7 @@ class Grid(CatMan):
         for i2 in options:
             g[i1.idx, i2.idx] = old[i2.idx] or None
 
-    ### Helpers for jsingler.de links
-
+    # Helpers for jsingler.de links
     def _get_encoded_grid(self, val):
         # Map each category to a letter and return the list of entries matching
         # val in the form e.g. a3b5
@@ -262,6 +264,7 @@ class Grid(CatMan):
     def _get_params(self):
         d = dict(at='s', ms='s', nc=self.num_cats, ni=self.num_items, v=0)
         encl = self._encl
+
         def esc(s):
             # The escaping they use seems a little weird so I didn't bother.
             # Just strip any chars that would ruin the link.
@@ -280,7 +283,7 @@ class Grid(CatMan):
         return base.format(self._get_params())
 
     def html_link(self):
-        '''get_link, but returns an HTML object that will display in ipython.'''
+        '''get_link, but returns an HTML object that ipython can display.'''
         link = self.get_link()
         if HTML is None:
             return link

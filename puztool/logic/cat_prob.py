@@ -8,7 +8,8 @@ import numpy as np
 import pandas as pd
 import z3
 
-from .b_grid import Grid
+from .cat_grid import CatGrid
+from .base import Solvable, Solution, solve, all_solns
 
 
 @attr.s(auto_attribs=True)
@@ -21,12 +22,12 @@ class VarLookup:
     that name1 goes with name2. As with all variable accessors, it's smart
     enough to do the right thing if you leave off the domain as long as the
     names are unique, so e.g. v['alice', 'ferret'] is the same as
-    v['name:alice', 'pet:ferret'] as long as 'alice' and 'ferret' only appear in
-    those two categories.
+    v['name:alice', 'pet:ferret'] as long as 'alice' and 'ferret' only appear
+    in those two categories.
 
     If either value is the name of an extra category, the variable for that
-    category will be returned instead. Thus v['alice', 'hairspeed'] would return
-    the int variable for alice's hairspeed.
+    category will be returned instead. Thus v['alice', 'hairspeed'] would
+    return the int variable for alice's hairspeed.
 
     If the input is a single string containing a /, it's split on the /, so
     v['alice/ferret'] is the same as v['alice', 'ferret']
@@ -34,7 +35,7 @@ class VarLookup:
     If the input is a single string without a /, this curries, so v['alice'] is
     a lookup function satisfying v['alice'](foo) == v['alice', 'foo']
     '''
-    s: "Solver"
+    prob: "CatProblem"
 
     def __getitem__(self, tup):
         if isinstance(tup, str) and '/' in tup:
@@ -42,54 +43,55 @@ class VarLookup:
         if isinstance(tup, str):
             return lambda s: self[tup, s]
         a, b = tup
-        if a in self.s.xcats:
+        if a in self.prob.xcats:
             # e.g. vars['size', 'yellow']
-            ib = self.s.get_info(b)
-            return self.s.vcats[a][ib.cat][ib.idx]
-        if b in self.s.xcats:
+            ib = self.prob.get_info(b)
+            return self.prob.vcats[a][ib.cat][ib.idx]
+        if b in self.prob.xcats:
             # e.g. vars['yellow', 'size']
-            ia = self.s.get_info(a)
-            return self.s.vcats[b][ia.cat][ia.idx]
-        ia = self.s.get_info(a)
-        ib = self.s.get_info(b)
-        return self.s.vgrids[ia.cat][ib.cat][ia.idx, ib.idx]
+            ia = self.prob.get_info(a)
+            return self.prob.vcats[b][ia.cat][ia.idx]
+        ia = self.prob.get_info(a)
+        ib = self.prob.get_info(b)
+        return self.prob.vgrids[ia.cat][ib.cat][ia.idx, ib.idx]
 
 
 @attr.s(auto_attribs=True)
-class Solution:
-    '''Thin wrapper around a Solver and a z3 model that solves it.
+class CatSoln:
+    '''Thin wrapper around a CatProblem and a Solution for it.
 
     The attribute .grid is a Grid with extra categories added for any xcats in
     the solution, mainly useful for viewing via html_link; .df is a pandas
     DataFrame of all the rows in the solution.
     '''
-    solver: "Solver"
-    model: z3.ModelRef
-    _grid: Grid = attr.ib(init=False, default=None)
+    catprob: "CatProblem"
+    soln: Solution
+    _grid: CatGrid = attr.ib(init=False, default=None)
     _df: pd.DataFrame = attr.ib(init=False, default=None)
     _rows: t.List[t.Dict[str, t.Any]] = attr.ib(init=False, default=None)
 
     @property
-    def rows(self) -> t.List[t.Dict[str,t.Any]]:
+    def rows(self) -> t.List[t.Dict[str, t.Any]]:
         if self._rows is None:
-            c1 = self.solver.categories[0]
+            c1 = self.catprob.categories[0]
             self._rows = []
-            for i1 in self.solver.domain(c1):
-                row = {c1:i1.val}
-                for c2 in self.solver.categories[1:]:
-                    for i2 in self.solver.domain(c2):
-                        is_set = self.model.eval(self.solver.vgrids[c1][c2][i1.idx, i2.idx])
+            for i1 in self.catprob.domain(c1):
+                row = {c1: i1.val}
+                for c2 in self.catprob.categories[1:]:
+                    for i2 in self.catprob.domain(c2):
+                        is_set = self.soln.val(
+                            self.catprob.vgrids[c1][c2][i1.idx, i2.idx])
                         if is_set:
                             row[c2] = i2.val
                             break
-                for xcat in self.solver.xcats:
-                    row[xcat] = self.model.eval(self.solver.vcats[xcat][c1][i1.idx])
+                for xcat in self.catprob.xcats:
+                    row[xcat] = self.soln.val(
+                        self.catprob.vcats[xcat][c1][i1.idx])
                 self._rows.append(row)
         return self._rows
 
-
     @property
-    def grid(self) -> Grid:
+    def grid(self) -> CatGrid:
         if self._grid is None:
             altrows = [dict(r) for r in self.rows]
             cats = list(altrows[0])
@@ -101,12 +103,13 @@ class Solution:
                         row[cat] = '_{}'.format(row[cat])
                     vals.add(row[cat])
             # Add xcat rows to grid, using only values that were actually used
-            catmap = {cat:[i.val for i in v] for (cat, v) in self.solver.catmap.items()}
+            catmap = {cat: [i.val for i in v]
+                      for (cat, v) in self.catprob.catmap.items()}
             for cat in set(cats) - set(catmap):
                 catmap[cat] = [row[cat] for row in altrows]
-            self._grid = Grid(catmap)
+            self._grid = CatGrid(catmap)
             for f1, f2 in combos(cats, 2):
-                self._grid.grids[f1][f2][:,:] = False
+                self._grid.grids[f1][f2][:, :] = False
             for row in altrows:
                 for f1, f2 in combos(cats, 2):
                     ia = self._grid.get_info(row[f1], cat=f1)
@@ -117,19 +120,9 @@ class Solution:
     @property
     def df(self) -> pd.DataFrame:
         if self._df is None:
-            cols = list(self.solver.categories) + list(self.solver.xcats)
+            cols = list(self.catprob.categories) + list(self.catprob.xcats)
             self._df = pd.DataFrame(self.rows, columns=cols)
         return self._df
-
-
-class NoSolution(ValueError):
-    pass
-
-
-class MultipleSolutions(ValueError):
-    def __init__(self, solns: t.List["Solution"]):
-        super().__init__()
-        self.solns = solns
 
 
 class CustomDomain(abc.ABC):
@@ -169,7 +162,9 @@ class BoolDomain(CustomDomain):
         return []
 
 
-class Solver(Grid):
+class CatProblem(CatGrid, Solvable):
+    '''A z3-backed category grid Solvable'''
+
     def __init__(self, categories):
         grid_categories = {}
         self.xcats = {}
@@ -200,10 +195,18 @@ class Solver(Grid):
                 d = self.domain(cat)
                 v[cat] = [domain.mk(f'{a.fullname}_{name}') for a in d]
         self.vars = VarLookup(self)
-        self.constraints = []
+        # A list for adding general other constraints
+        self._constraints = []
+
+    def constraints(self):
+        return (self.cons_sanity()
+                + self.cons_rowcol()
+                + self.cons_grid()
+                + self.cons_domains()
+                + self._constraints)
 
     def add(self, *cons):
-        self.constraints.extend(cons)
+        self._constraints.extend(cons)
 
     def add_constraint(self, *pairs):
         vnames = [self.get_info(p[0]) for p in pairs]
@@ -217,44 +220,28 @@ class Solver(Grid):
             return func
         return add_it
 
-    def all_vars(self):
+    def uniques(self):
         '''Return a list of all z3 variables being solved for.'''
-        xvars = sum(sum((tuple(x.values()) for x in self.vcats.values()), ()), [])
+        xvars = sum(sum((tuple(x.values())
+                         for x in self.vcats.values()), ()), [])
         gvars = sum((list(grid.flat) for grid in self.all_grids), [])
         return xvars + gvars
 
     def all_solutions(self, limit=10):
-        s = z3.Solver()
-        s.add(*self.cons_sanity())
-        s.add(*self.cons_rowcol())
-        s.add(*self.cons_grid())
-        s.add(*self.cons_domains())
-        s.add(*self.constraints)
-        c = 0
-        # Repeatedly find a solution, then add a constraint that at least one
-        # value must differ from that solution.
-        while c < limit and s.check() == z3.sat:
-            c += 1
-            soln = Solution(self, s.model())
-            yield soln
-            s.add(self.cons_exclude(soln))
-        if c == limit:
-            print(f"Warning: more than {limit} solutions found")
+        for soln in all_solns(self, limit=limit):
+            yield CatSoln(self, soln)
 
     def solve(self, unique=True):
-        first = None
-        for soln in self.all_solutions():
-            if not unique:
-                return soln
-            if first is not None:
-                raise MultipleSolutions([first, soln])
-            first = soln
-        if first is None:
-            raise NoSolution()
-        return first
+        soln = solve(self, unique=unique)
+        return CatSoln(self, soln)
 
     @fn.collecting
     def cons_domains(self):
+        '''Return domain constraints.
+
+        The returned list of constraints constrains every variable in
+        self.xcats to be in the domain it belongs to.
+        '''
         for (name, domain) in self.xcats.items():
             vlist = sum(self.vcats[name].values(), [])
             yield from domain.cons(vlist)
@@ -295,7 +282,8 @@ class Solver(Grid):
             for i in range(self.num_items):
                 for j in range(self.num_items):
                     for k in range(self.num_items):
-                        yield z3.Implies(z3.And(a2b[i, j], b2c[j, k]), a2c[i, k])
+                        yield z3.Implies(
+                            z3.And(a2b[i, j], b2c[j, k]), a2c[i, k])
         for cat in self.xcats:
             for f1, f2 in combos(self.categories, 2):
                 a2b = self.vgrids[f1][f2]
@@ -321,7 +309,7 @@ class Solver(Grid):
 
     def cons_exclude(self, soln: Solution):
         '''Return a constraint that excludes this particular solution.'''
-        return [z3.Or(*(v != soln.model.eval(v) for v in self.all_vars()))]
+        return [z3.Or(*(v != soln.model.eval(v) for v in self.uniques()))]
 
     def mk_exclude(self, *vals, **cats):
         keys = [self.get_info(k) for k in vals]
@@ -338,4 +326,3 @@ class Solver(Grid):
 
     def exclude(self, *vals, **cats):
         self.add(self.mk_exclude(*vals, **cats))
-
