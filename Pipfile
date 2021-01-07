@@ -12,6 +12,7 @@ gunicorn = "*"
 attrs = "*"
 lxml = "*"
 python-datamuse = "*"
+"z3-solver" = "*"
 
 [requires]
-python_version = "3.7"
+python_version = "3.9"

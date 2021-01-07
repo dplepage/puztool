@@ -4,7 +4,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="puztool", # Replace with your own username
+    name="puztool",
     version="0.5",
     author="Dan Lepage",
     author_email="dplepage@gmail.com",
@@ -13,7 +13,7 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/dplepage/puztool",
     packages=setuptools.find_packages(),
-    python_requires='>=3.6',
+    python_requires='>=3.9',
     install_requires=[
         'numpy',
         'beautifulsoup4',
@@ -21,6 +21,6 @@ setuptools.setup(
         'flask',
         'imageio',
         'imageio-ffmpeg',
-        'z3',
+        'z3-solver',
     ]
 )
