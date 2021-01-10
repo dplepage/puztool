@@ -38,15 +38,35 @@ class Solution:
         return dict(sorted(zip(names, vals)))
 
     def val(self, exp):
+        '''Evaluate a z3 ref to a python value based on this solution.
+         '''
         v = self.model.eval(exp)
-        if hasattr(v, 'as_long'):
+        if z3.is_true(v):
+            return True
+        if z3.is_false(v):
+            return False
+        if z3.is_algebraic_value(v):
+            v = v.approx(20)
+        if z3.is_int_value(v):
             return v.as_long()
+        if z3.is_rational_value(v):
+            return v.numerator_as_long() / v.denominator_as_long()
+
         return z3.is_true(v)
 
-    def vals(self, vars):
-        if isinstance(vars, z3.AstRef):
-            return self._val1(vars)
-        return np.vectorize(self._val1)(vars)
+    @fy.cached_property
+    def vals(self):
+        return np.vectorize(self.val)
+
+    def resolve(self, solvable: "Solvable"):
+        return solvable.reify(self)
+
+    def __call__(self, obj):
+        if isinstance(obj, Solvable):
+            return self.resolve(obj)
+        if isinstance(obj, z3.AstRef):
+            return self.val(obj)
+        return self.vals(obj)
 
 
 class Solvable(abc.ABC):
@@ -64,6 +84,17 @@ class Solvable(abc.ABC):
         result.include(other)
         return result
 
+    def reify(self, soln):
+        '''Represent this solvable sensibly in this solution.
+
+        The default is just a dict of {varname:value} for all vars in this
+        solvable; subclasses should override if they have more interesting
+        structures.
+        '''
+        vs = self.uniques()
+        vals = soln.vals(vs)
+        return {str(v): val for (v, val) in zip(vs, vals)}
+
 
 @attr.s(auto_attribs=True)
 class Problem(Solvable):
@@ -74,15 +105,16 @@ class Problem(Solvable):
     def constraints(self):
         l = []
         l.extend(self.constraints_)
-        for p in self.subprobs_:
+        for _, p in self.subprobs_:
             l.extend(p.constraints())
         return l
 
     def uniques(self):
         l = []
         l.extend(self.uniques_)
-        for p in self.subprobs_:
-            l.extend(p.uniques())
+        for sig, p in self.subprobs_:
+            if sig:
+                l.extend(p.uniques())
         return l
 
     def add(self, *constraints):
@@ -91,8 +123,8 @@ class Problem(Solvable):
     def add_uniques(self, *uniques):
         self.uniques_.extend(uniques)
 
-    def include(self, item):
-        self.subprobs_.append(item)
+    def include(self, item, sig=True):
+        self.subprobs_.append((sig, item))
         return item
 
 

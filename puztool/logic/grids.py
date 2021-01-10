@@ -36,6 +36,9 @@ class Z3Matrix(Solvable):
     def uniques(self):
         return list(self.M.flat)
 
+    def reify(self, soln):
+        return soln.vals(self.M)
+
 
 class IntMatrix(Z3Matrix):
     '''A rectangular matrix of z3 ints, constrained to a range.

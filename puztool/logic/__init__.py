@@ -2,7 +2,8 @@ from .z3_patch import apply as _apply_patch
 from . import grids
 from .cat_grid import CatGrid
 from .cat_prob import CatProblem, IntDomain, BoolDomain
-from .base import NoSolution, MultipleSolutions, Solution, all_solns, solve
+from .base import (
+    NoSolution, MultipleSolutions, Solution, all_solns, solve, Problem)
 from .grids import IntMatrix, Z3Matrix
 
 _apply_patch()
@@ -15,6 +16,7 @@ __all__ = [
     'NoSolution',
     'MultipleSolutions',
     'Solution',
+    'Problem',
     'all_solns',
     'solve',
     'grids',

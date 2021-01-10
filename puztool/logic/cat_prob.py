@@ -227,12 +227,7 @@ class CatProblem(CatGrid, Solvable):
         gvars = sum((list(grid.flat) for grid in self.all_grids), [])
         return xvars + gvars
 
-    def all_solutions(self, limit=10):
-        for soln in all_solns(self, limit=limit):
-            yield CatSoln(self, soln)
-
-    def solve(self, unique=True):
-        soln = solve(self, unique=unique)
+    def reify(self, soln):
         return CatSoln(self, soln)
 
     @fn.collecting
