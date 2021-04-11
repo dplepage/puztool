@@ -10,7 +10,6 @@ to numbers if every cell has a numberable string, and will truncate lines at
 parse_table, aliased to pt, tries to parse tabular data via pandas.read_table.
 
 '''
-import textwrap
 import io
 import re
 import funcy as fn
@@ -31,13 +30,11 @@ def guess_splitter(lines):
     return None
 
 
-def parse_grid(data=None, sep=None, strip='udr', comment='#', dedent=False,
-               ignore_blank=True, dtype=None, empty=None, quiet=False):
+def parse_grid(data=None, sep=None, strip='udr', comment='#', empty='',
+               ignore_blank=True, dtype=None, on_empty=None, quiet=False):
     msg = fn.identity if quiet else print
     if data is None:
         data = clipboard_get()
-    if dedent:
-        data = textwrap.dedent(data)
     lines = data.splitlines()
     # Strip leading blank line (generally from pasting something into triple
     # quotes)
@@ -67,6 +64,7 @@ def parse_grid(data=None, sep=None, strip='udr', comment='#', dedent=False,
         if len(line) < width:
             line.extend([''] * (width - len(line)))
     grid = np.array(lines, dtype=str)
+    grid[grid == empty] = ''
     if strip:
         grid = subrect(grid, dirs=strip)
     # Determine dtype
@@ -78,10 +76,10 @@ def parse_grid(data=None, sep=None, strip='udr', comment='#', dedent=False,
             dtype = float
     # xform coerces items to type
     if dtype is object:
-        xform = fn.identity
+        xform = lambda x: x if x != empty else None
     else:
-        xform = fn.iffy(dtype, default=empty)
-        dtype = object if '' in grid.flat and empty is None else dtype
+        xform = fn.iffy(dtype, default=on_empty)
+        dtype = object if '' in grid.flat and on_empty is None else dtype
     h, w = grid.shape
     result = np.array([[xform(val) for val in line]
                        for line in grid], dtype=dtype)
@@ -102,6 +100,8 @@ def parse_table(table=None, sep=r'\s+', header=None, conv=None, **kw):
 
 pt = parse_table
 pg = parse_grid
+
+pg.dots = fn.partial(pg, sep='', empty='.')
 
 
 if __name__ == '__main__':
