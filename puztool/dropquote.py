@@ -33,7 +33,7 @@ class Segment:
         return f'Segment({self.start!r}, {self.end!r}, {self.key!r}, {self._word!r})'
 
 def make_segs(s):
-    keys = iter('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ')
+    keys = iter('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz')
     segs = {}
     seg = None
     for i, c in enumerate(s):
