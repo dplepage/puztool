@@ -1,37 +1,42 @@
-import typing as t
 import z3
 import numpy as np
 import funcy as fn
 from ..grids import asdir
+from ..geom import iter_blocks, Shapeable, Indexable, as_shape, index, Point
 
 from .base import Solvable
+from .domain import Domain, IntDomain
 
 
-def _mk_grid(size, typ, idstr):
-    if isinstance(size, t.Iterable):
-        h, w = size
-    else:
-        h = w = size
+def _mk_grid(shape: Shapeable, domain: Domain, id: str):
+    rows, cols = as_shape(shape)
     return np.array([
-        [typ(f"{idstr}_{r}_{c}") for c in range(w)] for r in range(h)])
+        [domain.mk(f"{id}_{r}_{c}") for c in range(cols)]
+        for r in range(rows)])
 
 
 class Z3Matrix(Solvable):
     '''A rectangular matrix of z3 variables.'''
     _next_id = 0
 
+    @property
+    def shape(self):
+        return as_shape(self.M.shape)
+
     @classmethod
     def get_id(cls):
         cls._next_id += 1
         return cls._next_id - 1
 
-    def __init__(self, size, typ, idstr=None):
-        if idstr is None:
-            idstr = f"vars{self.get_id()}"
-        self.M = _mk_grid(size, typ, idstr)
+    def __init__(self, shape: Shapeable, domain: Domain, id: str = None):
+        if id is None:
+            id = f"vars{self.get_id()}"
+        self.domain = domain
+        self.M = _mk_grid(shape, domain, id)
 
+    @fn.collecting
     def constraints(self):
-        return []
+        yield from self.domain.cons(self.M.flat)
 
     def uniques(self):
         return list(self.M.flat)
@@ -43,9 +48,10 @@ class Z3Matrix(Solvable):
 class IntMatrix(Z3Matrix):
     '''A rectangular matrix of z3 ints, constrained to a range.
 
-    If size is an int, it's treated as (size, size).
+    If shape is an int, it's treated as (shape, shape).
 
-    If bounds aren't specified, they default to (1, size).
+    Bounds should be a tuple of (low, high); if high is None, it defaults to
+    low + max(shape).
 
     If unique is true, this object also generates constraints that no row or
     column can contain the same value twice.
@@ -55,25 +61,41 @@ class IntMatrix(Z3Matrix):
     digit appears exactly once in each row and column.
     '''
 
-    def __init__(self, size, bounds=(1, None), unique=False, idstr=None):
-        super().__init__(size, z3.Int, idstr)
+    def __init__(self, shape: Shapeable, bounds: tuple[int, int] = (1, None),
+                 unique: bool = False, id: str = None):
+        shape = as_shape(shape)
         low, high = bounds
         if high is None:
-            high = max(*self.M.shape) - 1 + low
+            high = max(shape) - 1 + low
+        super().__init__(shape, IntDomain(low, high), id)
         self.low = low
         self.high = high
         self.unique = unique
 
     @fn.collecting
     def constraints(self):
-        yield from ((v >= self.low) & (v <= self.high) for v in self.M.flat)
+        yield from super().constraints()
         if self.unique:
             yield from unique_rowcols(self.M)
 
 
-class BoolMatrix(Z3Matrix):
-    def __init__(self, size, idstr=None):
-        super().__init__(size, z3.Bool, idstr)
+class Sudoku(IntMatrix):
+    '''IntMatrix subclass with sudoku constraints.'''
+
+    def __init__(self, shape: Shapeable = 9, id: str = None,
+                 clues: Indexable = None):
+        super().__init__(shape, unique=True, id=id)
+        self.clues = clues
+
+    @fn.collecting
+    def constraints(self):
+        yield from super().constraints()
+        for _, subgrid in iter_blocks(self.M, self.shape.sqrt()):
+            yield z3.Distinct(*subgrid.flat)
+        if self.clues is not None:
+            for p, v in index(self.clues):
+                if v is not None:
+                    yield self.M[p] == v
 
 
 def unique_rowcols(m):
@@ -122,7 +144,6 @@ def visibilities(heightmap):
         occlusions = asdir(dmap[d], d)
         left_vis(heights, occlusions)
     return dmap
-
 
 
 '''TODO

@@ -1,17 +1,101 @@
-from typing import Tuple
 import attr
 import numpy as np
 import funcy as fn
 
 from .result import Result, ProvEntry
 from .pipeline import source
+from .geom import directions, parse_dirs, Point
 
 
 def Fail(*a, **kw):
     raise NotImplementedError()
 
 
+def mkrot(*rots):
+    '''Make a rotation function for characters.
+
+    The inputs should be length-four strings indicating four rotations of a
+    character.
+
+    For example:
+    >>> rot = mkrot("EM3W", "UCN]", "OOOO", "HIHI")
+    >>> rot('E', 1)
+    'M'
+    >>> rot('C', 1)
+    'N'
+    >>> rot('O', 3)
+    'O'
+
+    Unspecified letters will map to themselves with a number indicating how
+    many clockwise turns they have:
+    >>> rot('S', 1)
+    'S1'
+
+    There's a lot of room for improvement here...
+    '''
+    rmap = {}
+    for a, b, c, d in rots:
+        rmap[a] = b
+        rmap[b] = c
+        rmap[c] = d
+        rmap[d] = a
+
+    def rot(c, n=0):
+        if len(c) > 1:
+            n += int(c[1:])
+            c = c[0]
+        r = 0
+        for i in range(n):
+            if c in rmap:
+                c = rmap[c]
+                r = 0
+            else:
+                r = (r + 1) % 4
+        if r:
+            return f'{c}{r}'
+        return c
+    return rot
+
+
+'''
+TODO smarter rotator/flipper design?
+
+Ideas:
+
+1. Should really preserve state - e.g. S0 is different from S2, even though in
+many fonts they look the same. There should be a mapping stage at the end where
+we resolve the rotations
+
+2. We need a notation for flipping - e.g. "S'3" is "S" flipped backwards and
+then rotated 3 times clockwise. Need to make sure it's clear what the order is
+(flip-then-rotate produces different results from rotate-then-flip)
+
+3. Do we need to encode strings of these? Probably not, we can stick to arrays
+so that there's no confusion.
+
+4. Should have a library with some common ones - common box fonts, pigpen,
+maybe morse?
+
+5. Should have an easy way to add more - if a puzzle has a new font, want to
+build mapping immediately.
+'''
+
+
 class Rotator:
+    '''Rotator that understands character-level xforms.
+
+    Useful for ciphers (or even just fonts) where rotating one letter turns it
+    into another.
+
+    For example, a pigpen A becomes a C when rotated 90° OR flipped
+    horizontally, so a grid of pigpen letters could be rotated
+    programmatically, remapping the characters on the fly.
+
+    Use mkrot() to produce a simple rotator function whatever font or cipher
+    you're working with.
+
+    '''
+
     def __init__(self, vflip_char=None, hflip_char=None, cw_char=None):
         self.vflip_char = np.vectorize(vflip_char) if vflip_char else Fail
         self.hflip_char = np.vectorize(hflip_char) if hflip_char else Fail
@@ -98,9 +182,14 @@ def fall(mat, row, d='l', empty=''):
 def subrect(data, mask=None, pad=0, dirs='udlr'):
     '''Return a sub-rectangle of data containing everywhere mask is True.
 
-    If mask is None, data will be used, but must then be 2D.
-    If pad is True
+    If mask is None, data will be used, but must then be 2D. If pad is True,
+    some extra space will be left in. This will NOT add new rows if there isn't
+    enough padding in a given direction.
+
+    dirs lets you limit which dirs we chop off - by default, it's all four
+
     '''
+    dirs = set(dirs)
     nrows, ncols, *_ = data.shape
     if mask is None:
         mask = data
@@ -109,13 +198,13 @@ def subrect(data, mask=None, pad=0, dirs='udlr'):
         raise ValueError("Mask must be 2D")
     rm, rM = max(rows.min() - pad, 0), rows.max() + pad + 1
     cm, cM = max(cols.min() - pad, 0), cols.max() + pad + 1
-    if 'u' not in dirs:
+    if dirs & set('un'):
         rm = 0
-    if 'd' not in dirs:
+    if dirs & set('ds'):
         rM = nrows
-    if 'l' not in dirs:
+    if dirs & set('lw'):
         cm = 0
-    if 'r' not in dirs:
+    if dirs & set('re'):
         cM = ncols
     return data[rm:rM, cm:cM]
 
@@ -123,8 +212,8 @@ def subrect(data, mask=None, pad=0, dirs='udlr'):
 @attr.s(auto_attribs=True)
 class FromGrid(ProvEntry):
     '''Represents a range of points on a grid'''
-    start: Tuple[int, int]
-    end: Tuple[int, int]
+    start: Point
+    end: Point
 
     def __str__(self):
         return f"{self.start}->{self.end}"
@@ -137,70 +226,15 @@ class FromGrid(ProvEntry):
 
     @fn.collecting
     def indices(self):
-        s = np.array(self.start)
-        e = np.array(self.end)
-        d = abs(e - s).max()
+        s = self.start
+        e = self.end
+        d = max(abs(e - s)).max()
         delta = (e - s) // d
         for i in range(d + 1):
-            yield tuple(s + i * delta)
+            yield s + i * delta
 
     def idx(self):
         return np.array(self.indices()).T.tolist()
-
-
-class _DIRS:
-    l = left = w = west = np.array([0, -1])
-    r = right = e = east = np.array([0, 1])
-    u = up = n = north = np.array([-1, 0])
-    d = down = s = south = np.array([1, 0])
-    ul = upleft = nw = northwest = u + l
-    ur = upright = ne = northeast = u + r
-    dl = downleft = sw = southwest = d + l
-    dr = downright = se = southeast = d + r
-    h = hor = horizontals = (l, r)
-    v = ver = verticals = (u, d)
-    di = diagonals = (ul, ur, dl, dr)
-    o = ortho = h + v
-    a = all = ortho + diagonals
-
-    def __getitem__(self, key):
-        return getattr(self, key)
-
-
-directions = DIRS = _DIRS()
-
-
-def parse_dirs(dirs):
-    '''
-    Generate a set of directions from a string.
-
-    dirs can be a list of tuples, or a comma-separated list of letters
-    recognized by parse_dirs. For example, 'r,d' will map to left-to-right and
-    top-bottom, while 'h, sw, ne', will map to left-to-right, right-to-left,
-    upper-right-to-lower-left, and lower-left-to-lower-right.
-
-    >>> parse_dirs("r, u")
-    [array([0, 1]), array([-1,  0])]
-    >>> np.array(parse_dirs(["diagonals", np.array([3,3])]))
-    array([[-1, -1],
-           [-1,  1],
-           [ 1, -1],
-           [ 1,  1],
-           [ 3,  3]])
-    '''
-    if isinstance(dirs, str):
-        dirs = [d.strip() for d in dirs.split(",")]
-    chosen = []
-    for d in dirs:
-        if isinstance(d, str):
-            choice = directions[d.lower()]
-        else:
-            choice = d
-        if isinstance(choice, (list, tuple)):
-            chosen.extend(choice)
-        else:
-            chosen.append(choice)
-    return chosen
 
 
 @source
@@ -213,7 +247,7 @@ def iter_seqs(grid, len=(3, None), dirs=directions.all, wrap=False):
     words running horizontally (left-to-right or right-to-left) as well as
     any running from upper-right to lower-left or lower-left to lower-right
 
-    dirs defaults ot 'a', meaning all orthogonal and diagonal directions.
+    dirs defaults to 'a', meaning all orthogonal and diagonal directions.
 
     If len is a number, only sequences of that length will be returned. If it
     is a tuple of (min, max), only sequences with lengths in [min, max] will be

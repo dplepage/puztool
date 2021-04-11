@@ -1,16 +1,18 @@
 from .z3_patch import apply as _apply_patch
 from . import grids
 from .cat_grid import CatGrid
-from .cat_prob import CatProblem, IntDomain, BoolDomain
+from .cat_prob import CatProblem, Unique
 from .base import (
     NoSolution, MultipleSolutions, Solution, all_solns, solve, Problem)
-from .grids import IntMatrix, Z3Matrix
+from .domain import Domain, IntDomain, BoolDomain
+from .grids import IntMatrix, Z3Matrix, Sudoku
 
 _apply_patch()
 
 __all__ = [
     'CatGrid',
     'CatProblem',
+    'Domain',
     'IntDomain',
     'BoolDomain',
     'NoSolution',
@@ -22,4 +24,6 @@ __all__ = [
     'grids',
     'IntMatrix',
     'Z3Matrix',
+    'Sudoku',
+    'Unique',
 ]

@@ -1,4 +1,3 @@
-import abc
 from itertools import combinations as combos, product
 import typing as t
 
@@ -9,7 +8,8 @@ import pandas as pd
 import z3
 
 from .cat_grid import CatGrid
-from .base import Solvable, Solution, solve, all_solns
+from .base import Solvable, Solution
+from .domain import Domain
 
 
 @attr.s(auto_attribs=True)
@@ -125,51 +125,30 @@ class CatSoln:
         return self._df
 
 
-class CustomDomain(abc.ABC):
-    unique = False
-
-    @abc.abstractmethod
-    def mk(self, name: str) -> z3.ExprRef:
-        '''Generate a new domain'''
-        raise NotImplementedError()
-
-    @abc.abstractmethod
-    def cons(self, vs: t.List[z3.ExprRef]) -> t.List[z3.ExprRef]:
-        '''Given vars from self.mk, return implied constraints on them.'''
-        raise NotImplementedError()
-
-
-@attr.s(auto_attribs=True)
-class IntDomain(CustomDomain):
-    low: int
-    high: int
-    unique: bool = False
+class Unique(Domain):
+    def __init__(self, domain):
+        self.domain = domain
 
     def mk(self, name: str) -> z3.ExprRef:
-        return z3.Int(name)
+        return self.domain.mk(name)
 
     @fn.collecting
-    def cons(self, vs: t.List[z3.ExprRef]) -> t.List[z3.ExprRef]:
-        for var in vs:
-            yield (var >= self.low) & (var <= self.high)
-
-
-class BoolDomain(CustomDomain):
-    def mk(self, name):
-        return z3.Bool(name)
-
-    def cons(self, vs):
-        return []
+    def cons(self, vs: list[z3.ExprRef]) -> list[z3.ExprRef]:
+        yield from self.domain.cons(vs)
+        for x, y in combos(vs, 2):
+            yield x != y
 
 
 class CatProblem(CatGrid, Solvable):
     '''A z3-backed category grid Solvable'''
 
+    xcats: dict[str, Domain]
+
     def __init__(self, categories):
         grid_categories = {}
         self.xcats = {}
         for k, v in categories.items():
-            if isinstance(v, CustomDomain):
+            if isinstance(v, Domain):
                 self.xcats[k] = v
             else:
                 grid_categories[k] = v
@@ -238,12 +217,8 @@ class CatProblem(CatGrid, Solvable):
         self.xcats to be in the domain it belongs to.
         '''
         for (name, domain) in self.xcats.items():
-            vlist = sum(self.vcats[name].values(), [])
-            yield from domain.cons(vlist)
-            if domain.unique:
-                vals = self.vcats[name][self.categories[0]]
-                for a, b in combos(vals, 2):
-                    yield a != b
+            for varlist in self.vcats[name].values():
+                yield from domain.cons(varlist)
 
     @fn.collecting
     def cons_rowcol(self):
