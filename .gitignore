@@ -5,7 +5,7 @@ __pycache__
 .pytest_cache
 */.ipynb_checkpoints
 *.egg_info
-puztool/data/wordlists/*.txt
+puztool/data/*
 !puztool/data/wordlists/ospd.txt
 *.egg-info/
 .coverage
