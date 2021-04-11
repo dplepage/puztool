@@ -1,6 +1,6 @@
 import time
 from urllib.request import urlopen, quote
-import pandas as pd
+
 
 class StructureChanged(Exception):
     '''Exception for "we parsed a page and it wasn't what we expected".
@@ -9,6 +9,7 @@ class StructureChanged(Exception):
     integration will no longer work.
     '''
     pass
+
 
 class QueryError(ValueError):
     '''Raised when a service reports a bad input.'''
@@ -24,14 +25,21 @@ class Result(object):
         self.partial = partial
         self.time = time
         self.l = items
-        pstr = ' (partial)' if partial else ''
-        self.status = f'{len(self.l)} items in {self.time}s{pstr}'
+
+    @property
+    def status(self):
+        pstr = ' (partial)' if self.partial else ''
+        return f'{len(self.l)} items in {self.time:.2}s{pstr}'
 
     def __repr__(self):
-        return 'Result({!r}, {!r}, {!r})'.format(self.early, self.count, self.time)
+        return f'Result({self.partial!r}, {self.total!r}, {self.time!r})'
 
     def __str__(self):
         return '<{}>'.format(self.status)
+
+    def __iter__(self):
+        return iter(self.l)
+
 
 class Service:
     def ext_url(self, query):
@@ -40,23 +48,18 @@ class Service:
     def get_results(self, query):
         raise NotImplementedError()
 
-    def search(self, query, verbose=True, fmt='df'):
+    def search(self, query, verbose=True):
         start = time.perf_counter()
         items, partial, total = self.get_results(query)
         end = time.perf_counter()
         url = self.ext_url(query)
-        result = Result(query, url, total, end-start, partial, items)
+        result = Result(query, url, total, end - start, partial, items)
         if verbose:
             print(result.status)
-        if fmt == 'l':
-            return list(result.l)
-        if fmt == 'df':
-            return pd.DataFrame(result.l)
         return result
 
-    def __call__(self, query, verbose=True, fmt='df'):
-        return self.search(query, verbose, fmt)
-
+    def __call__(self, query, verbose=True):
+        return self.search(query, verbose)
 
 
 class ScraperService(Service):

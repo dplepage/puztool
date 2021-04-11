@@ -415,6 +415,14 @@ class PipelineHelper(Pipeline):
     [1, 3]
     >>> range(5) | P.exclude(1, 2).all()
     [0, 3, 4]
+
+    There are filter and remove helpers that accept funcy short syntax as well:
+
+    >>> ['foo', 'fool', 'football', 'open'] | P.filter("o[^o]+").all()
+    ['fool', 'football', 'open']
+
+    >>> ['foo', 'fool', 'football', 'open'] | P.remove("oo.").all()
+    ['foo', 'open']
     '''
     @staticmethod
     @terminal
@@ -434,6 +442,7 @@ class PipelineHelper(Pipeline):
             yield v
 
     filter = staticmod(fy.filter)
+    remove = staticmod(fy.remove)
     flatten = staticmod(fy.flatten)
 
     @staticmethod
