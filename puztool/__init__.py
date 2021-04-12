@@ -7,6 +7,7 @@ from .misc import smoosh, show
 from .dropquote import DropQuote
 from .pipeline import P
 from .service import qat, nutr
+from .copy import cp
 from . import pipes
 from . import codes as C
 from . import grids
